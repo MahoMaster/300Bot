@@ -1,0 +1,72 @@
+package repeat
+
+import (
+	"300Bot/send"
+	"time"
+
+	"github.com/wxnacy/wgo/arrays"
+)
+
+const repeatCD = 60
+
+type group struct {
+	//复读的人的qq
+	UserIds []float64
+	//复读的消息
+	LastMessage string
+	//复读次数
+	Count int
+	//是否已复读
+	HasRepeat bool
+	//本群多久内不再复读
+	CD int32
+}
+
+var (
+	repeat map[float64]*group
+)
+
+func init() {
+	repeat = make(map[float64]*group)
+}
+
+func CheckRepeat(msg map[string]interface{}) {
+	if _, ok := repeat[msg["group_id"].(float64)]; ok {
+		//判断消息是否相同
+		if msg["raw_message"] != repeat[msg["group_id"].(float64)].LastMessage {
+			repeat[msg["group_id"].(float64)].LastMessage = msg["raw_message"].(string)
+			repeat[msg["group_id"].(float64)].Count = 1
+			repeat[msg["group_id"].(float64)].HasRepeat = false
+			repeat[msg["group_id"].(float64)].UserIds = []float64{msg["user_id"].(float64)}
+			return
+		}
+		//判断复读的人是否存在
+		if arrays.ContainsFloat(repeat[msg["group_id"].(float64)].UserIds, msg["user_id"].(float64)) == -1 {
+			repeat[msg["group_id"].(float64)].UserIds = append(repeat[msg["group_id"].(float64)].UserIds, msg["user_id"].(float64))
+		} else {
+			return
+		}
+		//计数
+		repeat[msg["group_id"].(float64)].Count = repeat[msg["group_id"].(float64)].Count + 1
+
+		//达到次数且未复读过
+		if repeat[msg["group_id"].(float64)].Count >= 2 && !repeat[msg["group_id"].(float64)].HasRepeat {
+			//判断复读CD
+			now := int32(time.Now().Unix())
+			if now >= repeat[msg["group_id"].(float64)].CD {
+				//复读
+				send.SendGroup(msg["group_id"].(float64), repeat[msg["group_id"].(float64)].LastMessage)
+				repeat[msg["group_id"].(float64)].CD = now + repeatCD
+				repeat[msg["group_id"].(float64)].HasRepeat = true
+			}
+		}
+	} else {
+		repeat[msg["group_id"].(float64)] = &group{
+			UserIds:     []float64{msg["user_id"].(float64)},
+			LastMessage: msg["raw_message"].(string),
+			Count:       1,
+			HasRepeat:   false,
+			CD:          0,
+		}
+	}
+}

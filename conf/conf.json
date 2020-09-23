@@ -1,0 +1,8 @@
+{
+	"name":"300Bot",
+	"port":"9999",
+	"version": "1.0.0",
+	"apiPort":"5700",
+	"author": "Maho",
+	"mail":"MahoMaster@163.com"
+}
