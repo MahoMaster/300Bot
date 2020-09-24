@@ -69,8 +69,6 @@ func group(msg map[string]interface{}) {
 
 	msgStr := msg["raw_message"].(string)
 
-	//获取关键字
-
 	//查询at
 	self_id_str := strconv.FormatFloat(self_id, 'f', -1, 64)
 	if strings.Index(msg["raw_message"].(string), "[CQ:at,qq="+self_id_str+"]") != -1 {
@@ -81,6 +79,13 @@ func group(msg map[string]interface{}) {
 			return
 		}
 	}
+	msgStr = util.DeletePreAndSufSpace(msgStr)
+	//获取关键字
+	msgArr := strings.Fields(msgStr)
+	if checkKeywords(msgArr[0], msgStr, msg) {
+		return
+	}
+
 	// fmt.Println(self_id)
 	repeat.CheckRepeat(msg)
 }
