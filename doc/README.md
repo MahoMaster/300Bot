@@ -11,7 +11,7 @@
 - [x] 艾特关键词检测回复
 
 #### 指令
-> 拓展API可前往 [文档](http://www.mahomaster.com:3000/Maho/300Bot/src/master/doc/order.md) 查看
+> 拓展指令可前往 [文档](http://www.mahomaster.com:3000/Maho/300Bot/src/master/doc/order.md) 查看
 - [x] 使用帮助
 - [x] 整点二次元
 

@@ -2,8 +2,8 @@ package message
 
 import (
 	"300Bot/function/repeat"
-	"300Bot/model"
 	"300Bot/send"
+	"300Bot/store"
 	"300Bot/util"
 	"fmt"
 	"strconv"
@@ -25,20 +25,7 @@ func CheckType(msg map[string]interface{}) {
 	}
 }
 
-var GroupList []model.Group
-
 // var groupIdList []float64
-
-func init() {
-	updateGroupList()
-}
-func updateGroupList() {
-	GroupList = model.GetGroupList()
-	// groupIdList = make([]float64, 0)
-	// for _, value := range GroupList {
-	// 	groupIdList = append(groupIdList, value.Group_id)
-	// }
-}
 
 //私聊消息
 func private(msg map[string]interface{}) {
@@ -57,7 +44,7 @@ func group(msg map[string]interface{}) {
 	// 	return
 	// }
 	groupIndex := -1
-	for key, value := range GroupList {
+	for key, value := range store.GroupList {
 		if value.Group_id == msg["group_id"].(float64) {
 			groupIndex = key
 		}

@@ -3,10 +3,13 @@ package main
 import (
 	"300Bot/conf"
 	"300Bot/controll"
+
 	"fmt"
 	"net/http"
 	"os"
 )
+
+// var groupIdList []float64
 
 func main() {
 	// http.HandleFunc("/", controll.Index)
