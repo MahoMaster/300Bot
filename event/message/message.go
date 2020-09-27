@@ -82,8 +82,11 @@ func group(msg map[string]interface{}) {
 	msgStr = util.DeletePreAndSufSpace(msgStr)
 	//获取关键字
 	msgArr := strings.Fields(msgStr)
-	if checkKeywords(msgArr[0], msgStr, msg) {
-		return
+	if len(msgArr) > 0 {
+		if checkKeywords(msgArr[0], msgStr, msg) {
+			return
+		}
+
 	}
 
 	// fmt.Println(self_id)
