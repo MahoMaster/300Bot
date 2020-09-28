@@ -3,8 +3,8 @@ package message
 import (
 	"300Bot/function/img"
 	"300Bot/function/music"
+	"300Bot/function/wether"
 	"300Bot/send"
-	"fmt"
 	"strings"
 )
 
@@ -18,13 +18,21 @@ func checkKeywords(keyword string, msgStr string, msg map[string]interface{}) bo
 		return true
 	case "点歌":
 		msgArr := strings.Split(msgStr, keyword)
-		fmt.Println(len(msgArr))
+		// fmt.Println(len(msgArr))
 		if len(msgArr) < 2 {
 			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
 		} else if msgArr[1] == "" || msgArr[1] == " " {
 			send.SendGroupPost(msg["group_id"].(float64), "请输入关键词")
 		} else {
 			music.ShareMusic(msgArr[1], msg)
+		}
+		return true
+	case "天气", "查天气", "当前天气", "天气预报":
+		msgArr := strings.Split(msgStr, keyword)
+		if msgArr[1] == "" || msgArr[1] == " " {
+			send.SendGroupPost(msg["group_id"].(float64), "请输入关键词")
+		} else {
+			wether.GetCityWether(msgArr[1], msg)
 		}
 		return true
 	default:
