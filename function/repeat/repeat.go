@@ -55,7 +55,7 @@ func CheckRepeat(msg map[string]interface{}) {
 			now := int32(time.Now().Unix())
 			if now >= repeat[msg["group_id"].(float64)].CD {
 				//复读
-				send.SendGroup(msg["group_id"].(float64), repeat[msg["group_id"].(float64)].LastMessage)
+				send.SendGroupPost(msg["group_id"].(float64), repeat[msg["group_id"].(float64)].LastMessage)
 				repeat[msg["group_id"].(float64)].CD = now + repeatCD
 				repeat[msg["group_id"].(float64)].HasRepeat = true
 			}

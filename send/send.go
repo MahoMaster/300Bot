@@ -18,4 +18,18 @@ func SendGroup(group float64, msg string) {
 	groupstr := strconv.FormatFloat(group, 'f', -1, 64)
 	fmt.Println("发送消息到群" + groupstr + ":" + msg)
 	util.HttpGet(host + "/send_group_msg?group_id=" + groupstr + "&message=" + msg)
+
+}
+
+func SendGroupPost(group float64, msg string) {
+	groupstr := strconv.FormatFloat(group, 'f', -1, 64)
+	fmt.Println("发送消息到群" + groupstr + ":" + msg)
+
+	// var data map[string]interface{}
+	data := make(map[string]interface{})
+	data["group_id"] = group
+	data["message"] = msg
+
+	util.HttpPost(host+"/send_group_msg", data)
+
 }

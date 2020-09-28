@@ -19,7 +19,7 @@ func updateAtList() {
 func checkAtWords(msgStr string, msg map[string]interface{}) bool {
 	for _, value := range AtList {
 		if strings.Index(msgStr, value.Keyword) != -1 {
-			send.SendGroup(msg["group_id"].(float64), value.Reply)
+			send.SendGroupPost(msg["group_id"].(float64), value.Reply)
 			return true
 		}
 	}
