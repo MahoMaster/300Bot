@@ -4,7 +4,6 @@ import (
 	"300Bot/function/repeat"
 	"300Bot/send"
 	"300Bot/store"
-	"300Bot/util"
 	"fmt"
 	"strconv"
 	"strings"
@@ -60,13 +59,13 @@ func group(msg map[string]interface{}) {
 	self_id_str := strconv.FormatFloat(self_id, 'f', -1, 64)
 	if strings.Index(msg["raw_message"].(string), "[CQ:at,qq="+self_id_str+"]") != -1 {
 		msgStr = exstrings.Replace(msgStr, "[CQ:at,qq="+self_id_str+"]", "", -1)
-		msgStr = util.DeletePreAndSufSpace(msgStr)
+		msgStr = strings.TrimSpace(msgStr)
 		//如果是at的关键词就直接结束
 		if checkAtWords(msgStr, msg) {
 			return
 		}
 	}
-	msgStr = util.DeletePreAndSufSpace(msgStr)
+	msgStr = strings.TrimSpace(msgStr)
 	//获取关键字
 	msgArr := strings.Fields(msgStr)
 	if len(msgArr) > 0 {

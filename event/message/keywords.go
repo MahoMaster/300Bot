@@ -2,7 +2,10 @@ package message
 
 import (
 	"300Bot/function/img"
+	"300Bot/function/music"
 	"300Bot/send"
+	"fmt"
+	"strings"
 )
 
 func checkKeywords(keyword string, msgStr string, msg map[string]interface{}) bool {
@@ -12,6 +15,17 @@ func checkKeywords(keyword string, msgStr string, msg map[string]interface{}) bo
 		return true
 	case "来张涩图", "色图", "来张色图", "涩图", "整点二次元":
 		img.SendOneImg(msg)
+		return true
+	case "点歌":
+		msgArr := strings.Split(msgStr, keyword)
+		fmt.Println(len(msgArr))
+		if len(msgArr) < 2 {
+			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+		} else if msgArr[1] == "" || msgArr[1] == " " {
+			send.SendGroupPost(msg["group_id"].(float64), "请输入关键词")
+		} else {
+			music.ShareMusic(msgArr[1], msg)
+		}
 		return true
 	default:
 		return false

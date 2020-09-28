@@ -30,7 +30,7 @@ func timeInterval() {
 	c.AddFunc(spec, func() {
 		sayGoodMorning()
 	})
-
+	// sendWether()
 }
 
 func sayGoodMorning() {
@@ -61,29 +61,34 @@ func sayGoodMorning() {
 // 		// 获取群成员信息，本来想推送天气，获取不到地区。gg
 // 		// groupstr := strconv.FormatFloat(value.Group_id, 'f', -1, 64)
 // 		// body := util.HttpGet(host + "/get_group_member_list?group_id=" + groupstr)
-// 		// var groupMenberList map[string]interface{}
-// 		// err := json.Unmarshal(body, &groupMenberList)
-// 		// if err != nil {
-// 		// 	fmt.Println(err)
-// 		// 	continue
-// 		// }
-// 		// if groupMenberList["retcode"].(float64) == 0 {
+// 		data := make(map[string]interface{})
+// 		data["group_id"] = value.Group_id
 
-// 		// 	for _, value := range groupMenberList["data"].([]interface{}) {
-// 		// 		temp := value.(map[string]interface{})
-// 		// 		groupstr := strconv.FormatFloat(temp["group_id"].(float64), 'f', -1, 64)
-// 		// 		qqstr := strconv.FormatFloat(temp["user_id"].(float64), 'f', -1, 64)
-// 		// 		var menberInfo map[string]interface{}
-// 		// 		err = json.Unmarshal(util.HttpGet(host+"/get_group_member_info?group_id="+groupstr+"&user_id="+qqstr), &menberInfo)
-// 		// 		if err != nil {
-// 		// 			fmt.Println(err)
-// 		// 			continue
-// 		// 		}
-// 		// 		if menberInfo["retcode"].(float64) == 0 {
-// 		// 			info := menberInfo["data"].(map[string]interface{})
-// 		// 			fmt.Println(info)
-// 		// 		}
-// 		// 	}
-// 		// }
+// 		var groupMenberList map[string]interface{}
+// 		err := json.Unmarshal(util.HttpPost(host+"/get_group_member_list", data), &groupMenberList)
+// 		if err != nil {
+// 			fmt.Println(err)
+// 			continue
+// 		}
+// 		// fmt.Println(groupMenberList)
+// 		if groupMenberList["retcode"].(float64) == 0 {
+
+// 			for _, value := range groupMenberList["data"].([]interface{}) {
+// 				temp := value.(map[string]interface{})
+// 				groupstr := strconv.FormatFloat(temp["group_id"].(float64), 'f', -1, 64)
+// 				qqstr := strconv.FormatFloat(temp["user_id"].(float64), 'f', -1, 64)
+// 				var menberInfo map[string]interface{}
+// 				err = json.Unmarshal(util.HttpGet(host+"/get_group_member_info?group_id="+groupstr+"&user_id="+qqstr), &menberInfo)
+// 				if err != nil {
+// 					fmt.Println(err)
+// 					continue
+// 				}
+// 				if menberInfo["retcode"].(float64) == 0 {
+// 					fmt.Println(menberInfo)
+// 					// info := menberInfo["data"].(map[string]interface{})
+// 					// fmt.Println(info)
+// 				}
+// 			}
+// 		}
 // 	}
 // }
