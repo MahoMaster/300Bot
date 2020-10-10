@@ -2,6 +2,7 @@ package repeat
 
 import (
 	"300Bot/send"
+	"math/rand"
 	"time"
 
 	"github.com/wxnacy/wgo/arrays"
@@ -34,6 +35,22 @@ func CheckRepeat(msg map[string]interface{}) {
 	if _, ok := repeat[msg["group_id"].(float64)]; ok {
 		//判断消息是否相同
 		if msg["raw_message"] != repeat[msg["group_id"].(float64)].LastMessage {
+
+			//及时修复复读机并恢复复读
+			if repeat[msg["group_id"].(float64)].Count > 5 {
+				rand.Seed(time.Now().Unix())
+				random := rand.Intn(100) + 1
+				if random > 80 {
+					repeat[msg["group_id"].(float64)].Count = 1
+					send.SendGroupPost(msg["group_id"].(float64), `[CQ:image,file=0c9df9e9aaa98350bb28c1ca2661c5e0.image]`)
+					go func() {
+						time.Sleep(1 * time.Second)
+						send.SendGroupPost(msg["group_id"].(float64), repeat[msg["group_id"].(float64)].LastMessage)
+					}()
+					return
+				}
+			}
+
 			repeat[msg["group_id"].(float64)].LastMessage = msg["raw_message"].(string)
 			repeat[msg["group_id"].(float64)].Count = 1
 			repeat[msg["group_id"].(float64)].HasRepeat = false
@@ -58,6 +75,15 @@ func CheckRepeat(msg map[string]interface{}) {
 				send.SendGroupPost(msg["group_id"].(float64), repeat[msg["group_id"].(float64)].LastMessage)
 				repeat[msg["group_id"].(float64)].CD = now + repeatCD
 				repeat[msg["group_id"].(float64)].HasRepeat = true
+			}
+		}
+
+		//及时砸了复读机并打断复读
+		if repeat[msg["group_id"].(float64)].Count > 8 {
+			rand.Seed(time.Now().Unix())
+			random := rand.Intn(100) + 1
+			if random > 80 {
+				send.SendGroupPost(msg["group_id"].(float64), `[CQ:image,file=39ec988d2b574821cbd76a5cef2de6df.image]`)
 			}
 		}
 	} else {

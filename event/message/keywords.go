@@ -1,10 +1,12 @@
 package message
 
 import (
+	"300Bot/function/emotion"
 	"300Bot/function/img"
 	"300Bot/function/music"
 	"300Bot/function/wether"
 	"300Bot/send"
+	"path/filepath"
 	"strings"
 )
 
@@ -34,6 +36,18 @@ func checkKeywords(keyword string, msgStr string, msg map[string]interface{}) bo
 		} else {
 			wether.GetCityWether(msgArr[1], msg)
 		}
+		return true
+	case "设置底图":
+		msgArr := strings.Split(msgStr, keyword)
+		if msgArr[1] == "" || msgArr[1] == " " {
+			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+		} else {
+			emotion.SetImgBackground(msgArr[1], msg)
+		}
+		return true
+	case "底图目录":
+		path, _ := filepath.Abs("./static/imgBackground/0.jpg")
+		send.SendGroupPost(msg["group_id"].(float64), `[CQ:image,file=file:///`+path+`]`)
 		return true
 	default:
 		return false

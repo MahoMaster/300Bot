@@ -1,12 +1,14 @@
 package message
 
 import (
+	"300Bot/function/emotion"
 	"300Bot/function/repeat"
 	"300Bot/send"
 	"300Bot/store"
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/thinkeridea/go-extend/exstrings"
 )
@@ -29,7 +31,12 @@ func CheckType(msg map[string]interface{}) {
 //私聊消息
 func private(msg map[string]interface{}) {
 	fmt.Println("私聊消息", msg["raw_message"])
-	send.SendPrivate(msg["user_id"].(float64), msg["raw_message"].(string))
+	send.SendPrivate(msg["user_id"].(float64), `[CQ:image,file=0c9df9e9aaa98350bb28c1ca2661c5e0.image]`)
+	go func() {
+		time.Sleep(1 * time.Second)
+		send.SendPrivate(msg["user_id"].(float64), msg["raw_message"].(string))
+	}()
+
 }
 
 //群消息
@@ -75,6 +82,14 @@ func group(msg map[string]interface{}) {
 
 	}
 
+	//获取结尾
+	if msgStr[len(msgStr)-4:] == ".jpg" {
+		msgArr = strings.Split(msgStr, ".jpg")
+		if len(msgArr) == 2 {
+			emotion.Synthesis(msgArr[0], msg)
+		}
+		return
+	}
 	// fmt.Println(self_id)
 	repeat.CheckRepeat(msg)
 }
