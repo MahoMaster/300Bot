@@ -37,7 +37,7 @@ func checkKeywords(keyword string, msgStr string, msg map[string]interface{}) bo
 			wether.GetCityWether(msgArr[1], msg)
 		}
 		return true
-	case "设置底图":
+	case "设置底图", "底图设置":
 		msgArr := strings.Split(msgStr, keyword)
 		if msgArr[1] == "" || msgArr[1] == " " {
 			send.SendGroupPost(msg["group_id"].(float64), "参数错误")

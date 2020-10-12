@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/thinkeridea/go-extend/exstrings"
 )
@@ -31,11 +30,11 @@ func CheckType(msg map[string]interface{}) {
 //私聊消息
 func private(msg map[string]interface{}) {
 	fmt.Println("私聊消息", msg["raw_message"])
-	send.SendPrivate(msg["user_id"].(float64), `[CQ:image,file=0c9df9e9aaa98350bb28c1ca2661c5e0.image]`)
-	go func() {
-		time.Sleep(1 * time.Second)
-		send.SendPrivate(msg["user_id"].(float64), msg["raw_message"].(string))
-	}()
+	// send.SendPrivate(msg["user_id"].(float64), `[CQ:image,file=0c9df9e9aaa98350bb28c1ca2661c5e0.image]`)
+	// go func() {
+	// time.Sleep(1 * time.Second)
+	send.SendPrivate(msg["user_id"].(float64), "[CQ:contact,type=qq,id=675559614]")
+	// }()
 
 }
 
@@ -83,7 +82,7 @@ func group(msg map[string]interface{}) {
 	}
 
 	//获取结尾
-	if msgStr[len(msgStr)-4:] == ".jpg" {
+	if len(msgStr) > 4 && msgStr[len(msgStr)-4:] == ".jpg" {
 		msgArr = strings.Split(msgStr, ".jpg")
 		if len(msgArr) == 2 {
 			emotion.Synthesis(msgArr[0], msg)

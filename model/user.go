@@ -5,22 +5,22 @@ import (
 	"strings"
 )
 
-func SetImgBackground(qq float64, id string) {
+func SetImgBackground(qq float64, id string) bool {
 
 	id = strings.TrimSpace(id)
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
-		return
+		return false
 	}
 
 	if idInt < 1 {
-		return
+		return false
 	}
 
 	count := 0
 	db.Get(&count, "select count(1) from imgbackground")
 	if idInt > count {
-		return
+		return false
 	}
 
 	qqstr := strconv.FormatFloat(qq, 'f', -1, 64)
@@ -31,4 +31,5 @@ func SetImgBackground(qq float64, id string) {
 	} else {
 		db.Exec("insert into user (qq,imgbackground_set) values('" + qqstr + "'," + id + ")")
 	}
+	return true
 }

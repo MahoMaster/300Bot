@@ -22,7 +22,10 @@ import (
 
 func SetImgBackground(id string, msg map[string]interface{}) {
 	qq := msg["user_id"].(float64)
-	model.SetImgBackground(qq, id)
+	flag := model.SetImgBackground(qq, id)
+	if flag {
+		send.SendGroupPost(msg["group_id"].(float64), `已修改`)
+	}
 }
 
 func Synthesis(text string, msg map[string]interface{}) {
