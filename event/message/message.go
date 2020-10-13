@@ -33,7 +33,7 @@ func private(msg map[string]interface{}) {
 	// send.SendPrivate(msg["user_id"].(float64), `[CQ:image,file=0c9df9e9aaa98350bb28c1ca2661c5e0.image]`)
 	// go func() {
 	// time.Sleep(1 * time.Second)
-	send.SendPrivate(msg["user_id"].(float64), "[CQ:contact,type=qq,id=675559614]")
+	send.SendPrivate(msg["user_id"].(float64), "有什么意见建议问题可以直接发给Maho")
 	// }()
 
 }
@@ -84,7 +84,7 @@ func group(msg map[string]interface{}) {
 	//获取结尾
 	if len(msgStr) > 4 && msgStr[len(msgStr)-4:] == ".jpg" {
 		msgArr = strings.Split(msgStr, ".jpg")
-		if len(msgArr) == 2 {
+		if len(msgArr) >= 2 {
 			emotion.Synthesis(msgArr[0], msg)
 		}
 		return
