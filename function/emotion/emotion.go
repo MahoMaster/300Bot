@@ -31,6 +31,11 @@ func SetImgBackground(id string, msg map[string]interface{}) {
 func Synthesis(text string, msg map[string]interface{}) {
 	qq := msg["user_id"].(float64)
 	info := model.GetImgBackGroundInfo(qq)
+	// fmt.Println(utf8.RuneCountInString(text))
+	if utf8.RuneCountInString(text) > info.Max_length {
+		send.SendGroupPost(msg["group_id"].(float64), `这样子的，不行啦`)
+		return
+	}
 	name := "./static/temp/" + util.RandStr(5) + ".jpg"
 	file, _ := os.Create(name)
 

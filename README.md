@@ -1,4 +1,4 @@
-# 300Bot(2020-09-28)
+# 300Bot(2020-10-15)
 使用 [go-cqhttp](https://github.com/Mrs4s/go-cqhttp) 的api进行开发
 
 文档暂时可查看 `docs` 目录， 目前还在撰写中.
@@ -23,6 +23,7 @@
 - [x] 点歌
 - [x] 天气
 - [x] .jpg
+- [x] 送礼
 
 # 性能
 

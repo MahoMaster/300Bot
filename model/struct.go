@@ -10,6 +10,8 @@ type At struct {
 	Id      int    `json:"id"`
 	Keyword string `json:"keyword"`
 	Reply   string `json:"reply"`
+	Need_at int    `json:"need_at"`
+	Need_qq int    `json:"need_qq"`
 }
 
 type ImgBackground struct {

@@ -4,6 +4,7 @@ import (
 	"300Bot/function/emotion"
 	"300Bot/function/img"
 	"300Bot/function/music"
+	"300Bot/function/present"
 	"300Bot/function/wether"
 	"300Bot/send"
 	"path/filepath"
@@ -48,6 +49,14 @@ func checkKeywords(keyword string, msgStr string, msg map[string]interface{}) bo
 	case "底图目录":
 		path, _ := filepath.Abs("./static/imgBackground/0.jpg")
 		send.SendGroupPost(msg["group_id"].(float64), `[CQ:image,file=file:///`+path+`]`)
+		return true
+	case "免费礼物", "送礼":
+		msgArr := strings.Split(msgStr, keyword)
+		if msgArr[1] == "" || msgArr[1] == " " {
+			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+		} else {
+			present.SendGift(msgArr[1], msg)
+		}
 		return true
 	default:
 		return false
