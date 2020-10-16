@@ -33,3 +33,13 @@ func SendGroupPost(group float64, msg string) {
 	util.HttpPost(host+"/send_group_msg", data)
 
 }
+
+func SendGift(group float64, qq string, num int) {
+	gitf := fmt.Sprintf("[CQ:gift,qq=%s,id=%d]", qq, num)
+	SendGroupPost(group, gitf)
+}
+
+func SendPoke(group float64, qq string) {
+	poke := fmt.Sprintf("[CQ:poke,qq=%s]", qq)
+	SendGroupPost(group, poke)
+}

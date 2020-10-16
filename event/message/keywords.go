@@ -2,6 +2,7 @@ package message
 
 import (
 	"300Bot/function/emotion"
+	"300Bot/function/heros"
 	"300Bot/function/img"
 	"300Bot/function/music"
 	"300Bot/function/present"
@@ -57,6 +58,15 @@ func checkKeywords(keyword string, msgStr string, msg map[string]interface{}) bo
 		} else {
 			present.SendGift(msgArr[1], msg)
 		}
+		return true
+	case "签到", "打卡":
+		heros.CheckIn(msg)
+		return true
+	case "积分查询":
+		heros.GetUserInfo(msg)
+		return true
+	case "bot测试":
+		send.SendPoke(msg["group_id"].(float64), "675559614")
 		return true
 	default:
 		return false

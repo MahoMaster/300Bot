@@ -71,3 +71,15 @@ func DeletePreAndSufSpace(str string) string {
 
 	return string(strList[:count-spaceCount])
 }
+
+func Time2Str(t int64) string {
+	timeTemplate1 := "2006-01-02 15:04:05" //常规类型
+	// timeTemplate2 := "2006/01/02 15:04:05" //其他类型
+	// timeTemplate3 := "2006-01-02"          //其他类型
+	// timeTemplate4 := "15:04:05"            //其他类型
+	// ======= 将时间戳格式化为日期字符串 =======
+	return time.Unix(t, 0).Format(timeTemplate1) //输出：2019-01-08 13:50:30
+	// log.Println(time.Unix(t, 0).Format(timeTemplate2)) //输出：2019/01/08 13:50:30
+	// log.Println(time.Unix(t, 0).Format(timeTemplate3)) //输出：2019-01-08
+	// log.Println(time.Unix(t, 0).Format(timeTemplate4)) //输出：13:50:30
+}

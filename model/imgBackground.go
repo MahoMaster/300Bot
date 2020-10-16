@@ -11,7 +11,8 @@ func GetImgBackGroundInfo(qq float64) ImgBackground {
 	err := db.Get(&id, "SELECT imgbackground_set from `user` where qq=?", qqstr)
 	if err != nil {
 		if err.Error() == "sql: no rows in result set" {
-			db.Exec("insert into user (qq) values('" + qqstr + "')")
+			CheckRegister(qqstr)
+			// db.Exec("insert into user (qq) values(?)", qqstr)
 		}
 	}
 	var mods ImgBackground

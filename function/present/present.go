@@ -2,7 +2,6 @@ package present
 
 import (
 	"300Bot/send"
-	"fmt"
 	"math/rand"
 	"regexp"
 	"strings"
@@ -23,6 +22,5 @@ func SendGift(qq string, msg map[string]interface{}) {
 		}
 	}
 	qq = strings.TrimSpace(qq)
-	gitf := fmt.Sprintf("[CQ:gift,qq=%s,id=%d]", qq, random)
-	send.SendGroupPost(msg["group_id"].(float64), gitf)
+	send.SendGift(msg["group_id"].(float64), qq, random)
 }

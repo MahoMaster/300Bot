@@ -27,3 +27,12 @@ type ImgBackground struct {
 	Rect_x       int     `json:"rect_x,omitempty"`
 	Rect_y       int     `json:"rect_y,omitempty"`
 }
+
+type User struct {
+	Id                int    `json:"id,omitempty"`
+	Qq                string `json:"qq,omitempty"`
+	Is_ban            int    `json:"is_ban,omitempty"`
+	Imgbackground_set int    `json:"imgbackground_set,omitempty"`
+	Check_in          int64  `json:"check_in,omitempty"`
+	Points            int    `json:"points,omitempty"`
+}
