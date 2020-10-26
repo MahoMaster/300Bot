@@ -6,6 +6,7 @@ import (
 	"300Bot/send"
 	"300Bot/store"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
@@ -29,7 +30,7 @@ func CheckType(msg map[string]interface{}) {
 
 //私聊消息
 func private(msg map[string]interface{}) {
-	fmt.Println("私聊消息", msg["raw_message"])
+	log.Println("私聊消息", msg["raw_message"])
 	// send.SendPrivate(msg["user_id"].(float64), `[CQ:image,file=0c9df9e9aaa98350bb28c1ca2661c5e0.image]`)
 	// go func() {
 	// time.Sleep(1 * time.Second)
@@ -41,6 +42,17 @@ func private(msg map[string]interface{}) {
 //群消息
 func group(msg map[string]interface{}) {
 	fmt.Println("群消息", msg)
+	//是否被ban
+	banIndex := -1
+	for key, value := range store.BanList {
+		if value.Qq == strconv.FormatFloat(msg["user_id"].(float64), 'f', -1, 64) {
+			banIndex = key
+		}
+	}
+	if banIndex != -1 {
+		return
+	}
+
 	if msg["sub_type"] != "normal" {
 		return
 	}
@@ -82,7 +94,7 @@ func group(msg map[string]interface{}) {
 	}
 
 	//获取结尾
-	if len(msgStr) > 4 && msgStr[len(msgStr)-4:] == ".jpg" {
+	if len(msgStr) >= 4 && msgStr[len(msgStr)-4:] == ".jpg" {
 		msgArr = strings.Split(msgStr, ".jpg")
 		if len(msgArr) >= 2 {
 			emotion.Synthesis(msgArr[0], msg)

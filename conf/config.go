@@ -14,7 +14,10 @@ type config struct {
 	Port string `json:"port"`
 	//调用发送等api的端口
 	ApiPort string `json:"apiPort"`
-	//
+	//机器人qq号
+	BotQQ string `json:"botQQ"`
+	//最高权限QQ
+	Manager string `json:"manager"`
 }
 
 const (
@@ -48,6 +51,5 @@ func init() {
 		fmt.Println("配置文件无效")
 		panic(err.Error())
 	}
-
 	fmt.Println("run on ", Config.Port)
 }

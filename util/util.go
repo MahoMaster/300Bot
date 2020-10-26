@@ -3,6 +3,7 @@ package util
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -34,9 +35,13 @@ func HttpGet(url string) []byte {
 }
 
 func HttpPost(url string, data interface{}) []byte {
-
-	// 超时时间：5秒
-	client := &http.Client{Timeout: 5 * time.Second}
+	defer func() {
+		if info := recover(); info != nil {
+			fmt.Println("芜锁胃", info)
+		}
+	}()
+	// 超时时间：60秒
+	client := &http.Client{Timeout: 60 * time.Second}
 	jsonStr, _ := json.Marshal(data)
 	resp, err := client.Post(url, "application/json", bytes.NewBuffer(jsonStr))
 	if err != nil {

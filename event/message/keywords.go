@@ -1,6 +1,8 @@
 package message
 
 import (
+	"300Bot/conf"
+	"300Bot/function/ban"
 	"300Bot/function/emotion"
 	"300Bot/function/heros"
 	"300Bot/function/img"
@@ -8,7 +10,10 @@ import (
 	"300Bot/function/present"
 	"300Bot/function/wether"
 	"300Bot/send"
+	"300Bot/store"
+	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -66,9 +71,54 @@ func checkKeywords(keyword string, msgStr string, msg map[string]interface{}) bo
 		heros.GetUserInfo(msg)
 		return true
 	case "bot测试":
-		send.SendPoke(msg["group_id"].(float64), "675559614")
+		defer func() {
+			if info := recover(); info != nil {
+				fmt.Println("触发了宕机", info)
+			} else {
+				fmt.Println("芜锁胃")
+			}
+		}()
+		// send.SendPoke(msg["group_id"].(float64), "675559614")
+		panic("tt")
+		return true
+	case "Ban", "禁用", "ban", "解除禁用":
+		flag := checkManage(msg)
+		if !flag {
+			send.SendGroupPost(msg["group_id"].(float64), "你有个锤锤权限，爬")
+			return true
+		}
+		msgArr := strings.Split(msgStr, keyword)
+		if msgArr[1] == "" || msgArr[1] == " " {
+			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+		} else {
+			if keyword == "解除禁用" {
+				ban.BanSomeOne(msgArr[1], 0, msg)
+			} else {
+				ban.BanSomeOne(msgArr[1], 1, msg)
+			}
+
+		}
 		return true
 	default:
+		return false
+	}
+}
+
+func checkManage(msg map[string]interface{}) bool {
+	groupIndex := -1
+	for key, value := range store.GroupList {
+		if value.Group_id == msg["group_id"].(float64) {
+			groupIndex = key
+		}
+	}
+	if groupIndex == -1 {
+		return false
+	}
+	qqstr := strconv.FormatFloat(msg["user_id"].(float64), 'f', -1, 64)
+
+	if qqstr == conf.Config.Manager || qqstr == strconv.FormatFloat(store.GroupList[groupIndex].Manager, 'f', -1, 64) {
+		return true
+	} else {
 		return false
 	}
 }

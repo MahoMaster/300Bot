@@ -1,6 +1,7 @@
 package send
 
 import (
+	"300Bot/conf"
 	"300Bot/store"
 	"300Bot/util"
 	"encoding/json"
@@ -47,8 +48,9 @@ func sayGoodMorning() {
 				dragonKing := honor["data"].(map[string]interface{})["current_talkative"].(map[string]interface{})
 				qqStr := strconv.FormatFloat(dragonKing["user_id"].(float64), 'f', -1, 64)
 				count := strconv.FormatFloat(dragonKing["day_count"].(float64), 'f', -1, 64)
-
-				SendGroupPost(value.Group_id, `[CQ:at,qq=`+qqStr+`] 哦哈哟，龙王大哥哥~ 你已经蝉联龙王`+count+`天了。加油啊，龙王大哥哥，继续水群摩多摩多`)
+				if qqStr != conf.Config.BotQQ {
+					SendGroupPost(value.Group_id, `[CQ:at,qq=`+qqStr+`] 哦哈哟，龙王大哥哥~ 你已经蝉联龙王`+count+`天了。加油啊，龙王大哥哥，继续水群摩多摩多`)
+				}
 			}
 		}
 	}

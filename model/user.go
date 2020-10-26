@@ -72,3 +72,24 @@ func GetUserInfo(qq float64) User {
 	}
 	return mods
 }
+
+func UpdateBanList() []User {
+	var mods = make([]User, 0)
+	err := db.Select(&mods, "SELECT * from `user` where is_ban=1")
+	if err != nil {
+		fmt.Println(err)
+	}
+	return mods
+}
+
+func BanSomeOne(qqstr string, ban int) bool {
+	// qqstr := strconv.FormatFloat(qq, 'f', -1, 64)
+	num := 0
+	db.Get(&num, "select count(1) from user where qq=?", qqstr)
+	if num == 0 {
+		return false
+	}
+
+	db.Exec("update user set is_ban=? where qq=?", ban, qqstr)
+	return true
+}

@@ -12,6 +12,13 @@ import (
 
 func main() {
 	// http.HandleFunc("/", controll.Index)
+	// defer func() {
+	// 	if info := recover(); info != nil {
+	// 		fmt.Println("触发了宕机", info)
+	// 	} else {
+	// 		fmt.Println("芜锁胃")
+	// 	}
+	// }()
 	controll.StartWebsocket()
 	if err := http.ListenAndServe(`:`+conf.Config.Port, nil); err != nil {
 		fmt.Println(err)
