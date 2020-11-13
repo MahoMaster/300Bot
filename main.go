@@ -3,6 +3,7 @@ package main
 import (
 	"300Bot/conf"
 	"300Bot/controll"
+	_ "300Bot/interval"
 	"fmt"
 	"net/http"
 	"os"

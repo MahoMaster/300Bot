@@ -63,8 +63,8 @@ type GetlistRes struct {
 	List   []List
 }
 
-func Getlist(name string) (GetlistRes, string) {
-	res := util.HttpGet(host + "/api/getlist?name=" + name)
+func Getlist(name string, index string) (GetlistRes, string) {
+	res := util.HttpGet(host + "/api/getlist?name=" + name + "&index=" + index)
 	var resp GetlistRes
 	json.Unmarshal(res, &resp)
 	if resp.Result != "OK" {
@@ -160,8 +160,8 @@ type GetRankRes struct {
 	Rank   Rank
 }
 
-func GetRank(typeId string) (GetRankRes, string) {
-	res := util.HttpGet(host + "/api/getrank?type=" + typeId)
+func GetRank(typeId string, index string) (GetRankRes, string) {
+	res := util.HttpGet(host + "/api/getrank?type=" + typeId + "&index=" + index)
 	var resp GetRankRes
 	json.Unmarshal(res, &resp)
 	if resp.Result != "OK" {
@@ -170,7 +170,8 @@ func GetRank(typeId string) (GetRankRes, string) {
 		return resp, ""
 	}
 }
-func init() {
-	Getrole("まほたん")
-	// getrole("张三")
-}
+
+// func init() {
+// 	Getrole("まほたん")
+// 	// getrole("张三")
+// }

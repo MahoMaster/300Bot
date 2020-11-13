@@ -66,7 +66,7 @@ func GetUserInfo(qq float64) User {
 	CheckRegister(qqstr)
 
 	var mods User
-	err = db.Get(&mods, "SELECT * from `user` where qq=?", qqstr)
+	err := db.Get(&mods, "SELECT * from `user` where qq=?", qqstr)
 	if err != nil {
 		fmt.Println(err)
 	}

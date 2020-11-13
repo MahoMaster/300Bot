@@ -8,7 +8,7 @@ import (
 	"github.com/wxnacy/wgo/arrays"
 )
 
-const repeatCD = 60
+const repeatCD = 180
 
 type group struct {
 	//复读的人的qq
@@ -84,6 +84,10 @@ func CheckRepeat(msg map[string]interface{}) {
 			random := rand.Intn(100) + 1
 			if random > 80 {
 				send.SendGroupPost(msg["group_id"].(float64), `[CQ:image,file=39ec988d2b574821cbd76a5cef2de6df.image]`)
+				repeat[msg["group_id"].(float64)].LastMessage = ""
+				repeat[msg["group_id"].(float64)].Count = 1
+				repeat[msg["group_id"].(float64)].HasRepeat = true
+				repeat[msg["group_id"].(float64)].UserIds = []float64{msg["user_id"].(float64)}
 			}
 		}
 	} else {

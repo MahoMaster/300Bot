@@ -11,7 +11,6 @@ import (
 	"300Bot/function/wether"
 	"300Bot/send"
 	"300Bot/store"
-	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -24,6 +23,9 @@ func checkKeywords(keyword string, msgStr string, msg map[string]interface{}) bo
 		return true
 	case "来张涩图", "色图", "来张色图", "涩图", "整点二次元":
 		img.SendOneImg(msg)
+		return true
+	case "不够色":
+		send.SendGroupPost(msg["group_id"].(float64), "钱都不给还想看好康的？[CQ:face,id=176]")
 		return true
 	case "点歌":
 		msgArr := strings.Split(msgStr, keyword)
@@ -71,15 +73,16 @@ func checkKeywords(keyword string, msgStr string, msg map[string]interface{}) bo
 		heros.GetUserInfo(msg)
 		return true
 	case "bot测试":
-		defer func() {
-			if info := recover(); info != nil {
-				fmt.Println("触发了宕机", info)
-			} else {
-				fmt.Println("芜锁胃")
-			}
-		}()
-		// send.SendPoke(msg["group_id"].(float64), "675559614")
-		panic("tt")
+		// defer func() {
+		// 	if info := recover(); info != nil {
+		// 		fmt.Println("触发了宕机", info)
+		// 	} else {
+		// 		fmt.Println("芜锁胃")
+		// 	}
+		// }()
+		// send.SendPoke(msg["group_id"].(float64), "&#91;骰子&#93;")
+		send.SendGroupPost(msg["group_id"].(float64), "[CQ:dice]")
+		// panic("tt")
 		return true
 	case "Ban", "禁用", "ban", "解除禁用":
 		flag := checkManage(msg)
