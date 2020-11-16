@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+
+	"github.com/garyburd/redigo/redis"
 )
 
 func CountHerosWin(hero api.Hero, time string, matchID int, isWin int) {
@@ -37,20 +39,18 @@ func DelHerosWinRedis() {
 func GetHerosWin(time string, orderType int, descType string, limit string) []HerosCount {
 	countList := make([]HerosCount, 0)
 	limitInt, _ := strconv.Atoi(limit)
-	redisKey := "300WinCount" + strconv.Itoa(orderType) + descType
+	redisKey := "300WinCount" + time + strconv.Itoa(orderType) + descType
 
-	fmt.Println(time, orderType, descType)
-
-	// exit, err := redis.Bool(c.Do("EXISTS", redisKey))
-	// if err != nil {
-	// 	fmt.Println(err)
-	// } else {
-	// 	if exit {
-	// 		temp, _ := redis.String(c.Do("GET", redisKey))
-	// 		json.Unmarshal([]byte(temp), &countList)
-	// 		return countList[0:limitInt]
-	// 	}
-	// }
+	exit, err := redis.Bool(c.Do("EXISTS", redisKey))
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		if exit {
+			temp, _ := redis.String(c.Do("GET", redisKey))
+			json.Unmarshal([]byte(temp), &countList)
+			return countList[0:limitInt]
+		}
+	}
 
 	useSql := ""
 	if orderType == 0 {
