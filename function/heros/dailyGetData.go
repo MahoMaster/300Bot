@@ -12,7 +12,7 @@ import (
 func GetDailyData() {
 	//获取每天团分前2000人的数据
 	rankList := []api.RankList{}
-	for i := 0; i < 50; i += 50 {
+	for i := 0; i < 2000; i += 50 {
 		temp, msg := api.GetRank("1", strconv.Itoa(i))
 		if msg == "" {
 			rankList = append(rankList, temp.Rank.List...)
@@ -66,9 +66,15 @@ func getMatchData(match api.List) {
 		// fmt.Println(matchInfo)
 		for _, value := range matchInfo.Match.WinSide {
 			getSkillEquipHeros(value, matchInfo.Match.MatchType)
+			if matchInfo.Match.MatchType == 1 {
+				herosModel.CountHerosWin(value.Hero, matchInfo.Match.MatchDate, match.MatchID, 1)
+			}
 		}
 		for _, value := range matchInfo.Match.LoseSide {
 			getSkillEquipHeros(value, matchInfo.Match.MatchType)
+			if matchInfo.Match.MatchType == 1 {
+				herosModel.CountHerosWin(value.Hero, matchInfo.Match.MatchDate, match.MatchID, 0)
+			}
 		}
 	}
 }
