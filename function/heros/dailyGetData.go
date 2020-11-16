@@ -57,6 +57,7 @@ func GetDailyData() {
 	for _, value := range matchList {
 		getMatchData(value)
 	}
+	herosModel.DelHerosWinRedis()
 	fmt.Println("今日数据收集已完毕")
 }
 

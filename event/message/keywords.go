@@ -102,6 +102,47 @@ func checkKeywords(keyword string, msgStr string, msg map[string]interface{}) bo
 
 		}
 		return true
+	case "单日出场排行", "单日胜率排行", "三日出场排行", "三日胜率排行", "一周出场排行", "一周胜率排行":
+		msgArr := strings.Split(msgStr, keyword)
+		param := strings.TrimSpace(msgArr[1])
+		paramArr := strings.Split(param, " ")
+		limit := "20"
+		descType := "desc"
+
+		if len(paramArr) >= 1 {
+			if paramArr[0] != "" && paramArr[0] != " " {
+				limit = strings.TrimSpace(paramArr[0])
+				limitInt, err := strconv.Atoi(limit)
+				if err != nil {
+					send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+					return true
+				}
+				if limitInt <= 0 {
+					send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+					return true
+				}
+				if limitInt > 20 {
+					send.SendGroupPost(msg["group_id"].(float64), "数据有点多了哦，以后会优化")
+					return true
+				}
+			}
+		}
+		if len(paramArr) >= 2 {
+			if paramArr[1] != "" && paramArr[1] != " " {
+				desc := strings.TrimSpace(paramArr[1])
+				descInt, err := strconv.Atoi(desc)
+				if err != nil {
+					send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+					return true
+				}
+				if descInt == 1 {
+					descType = "asc"
+				}
+			}
+		}
+		// return true
+		heros.GetBattleCount(keyword, descType, limit, msg)
+		return true
 	default:
 		return false
 	}
