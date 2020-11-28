@@ -11,7 +11,7 @@ import (
 
 func CountHerosWin(hero api.Hero, time string, matchID int, isWin int) {
 	num := 0
-	db.Get(&num, "select count(1) from count_heros_winrate where match_id=? and heros_id=?", matchID, hero.ID)
+	db.Get(&num, "select count(1) from count_heros_winrate where match_id=? and heros_id=? and is_win=?", matchID, hero.ID, isWin)
 	if num != 0 {
 
 	} else {

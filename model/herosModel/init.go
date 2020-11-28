@@ -23,7 +23,7 @@ func init() {
 	if err = db.Ping(); err != nil {
 		panic(err)
 	}
-
+	db.SetMaxOpenConns(8)
 	fmt.Println("300数据库连接成功")
 	c, redisErr = redis.Dial("tcp", "127.0.0.1:6379")
 	if redisErr != nil {

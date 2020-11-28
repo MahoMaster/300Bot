@@ -9,7 +9,6 @@ import (
 
 var db *sqlx.DB
 var err error
-var herosData *sqlx.DB
 
 // var c redis.Conn
 // var redisErr error
@@ -20,14 +19,6 @@ func init() {
 		panic(err)
 	}
 	if err = db.Ping(); err != nil {
-		panic(err)
-	}
-
-	herosData, err = sqlx.Open(`mysql`, `root:root@tcp(127.0.0.1:3306)/300heros?charset=utf8mb4&parseTime=true`)
-	if err != nil {
-		panic(err)
-	}
-	if err = herosData.Ping(); err != nil {
 		panic(err)
 	}
 

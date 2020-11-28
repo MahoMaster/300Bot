@@ -4,6 +4,7 @@ import (
 	"300Bot/conf"
 	"300Bot/util"
 	"fmt"
+	"log"
 	"strconv"
 )
 
@@ -16,14 +17,14 @@ func SendPrivate(qq float64, msg string) {
 
 func SendGroup(group float64, msg string) {
 	groupstr := strconv.FormatFloat(group, 'f', -1, 64)
-	fmt.Println("发送消息到群" + groupstr + ":" + msg)
+	log.Println("发送消息到群" + groupstr + ":" + msg)
 	util.HttpGet(host + "/send_group_msg?group_id=" + groupstr + "&message=" + msg)
 
 }
 
 func SendGroupPost(group float64, msg string) {
 	groupstr := strconv.FormatFloat(group, 'f', -1, 64)
-	fmt.Println("发送消息到群" + groupstr + ":" + msg)
+	log.Println("发送消息到群" + groupstr + ":" + msg)
 
 	// var data map[string]interface{}
 	data := make(map[string]interface{})

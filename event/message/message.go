@@ -5,7 +5,6 @@ import (
 	"300Bot/function/repeat"
 	"300Bot/send"
 	"300Bot/store"
-	"fmt"
 	"log"
 	"strconv"
 	"strings"
@@ -41,7 +40,7 @@ func private(msg map[string]interface{}) {
 
 //群消息
 func group(msg map[string]interface{}) {
-	fmt.Println("群消息", msg)
+	log.Println("群消息", msg)
 	//是否被ban
 	banIndex := -1
 	for key, value := range store.BanList {

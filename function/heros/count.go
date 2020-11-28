@@ -45,6 +45,7 @@ func GetBattleCount(keyword string, descType string, limit string, msg map[strin
 		}
 		template += `第` + strconv.Itoa(index+1) + `名
 [CQ:image,file=` + value.Icon + `] ` + value.Name + ` ,胜率: ` + strconv.Itoa(value.Win) + `/` + strconv.Itoa(value.Win+value.Lose) + ` ` + fmt.Sprintf("%.2f", value.Rate) + `%
+
 `
 	}
 	send.SendGroupPost(msg["group_id"].(float64), template)

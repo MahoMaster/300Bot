@@ -71,13 +71,35 @@ func CheckRepeat(msg map[string]interface{}) {
 			//判断复读CD
 			now := int32(time.Now().Unix())
 			if now >= repeat[msg["group_id"].(float64)].CD {
-				//复读
-				send.SendGroupPost(msg["group_id"].(float64), repeat[msg["group_id"].(float64)].LastMessage)
-				repeat[msg["group_id"].(float64)].CD = now + repeatCD
-				repeat[msg["group_id"].(float64)].HasRepeat = true
+				rand.Seed(time.Now().Unix())
+				random := rand.Intn(100) + 1
+				if random > 30 {
+					//复读
+					send.SendGroupPost(msg["group_id"].(float64), repeat[msg["group_id"].(float64)].LastMessage)
+					repeat[msg["group_id"].(float64)].CD = now + repeatCD
+					repeat[msg["group_id"].(float64)].HasRepeat = true
+				}
 			}
 		}
-
+		//及时砸了复读机并打断复读
+		if repeat[msg["group_id"].(float64)].Count > 3 {
+			rand.Seed(time.Now().Unix())
+			random := rand.Intn(100) + 1
+			if random > 60 {
+				if random < 80 {
+					send.SendGroupPost(msg["group_id"].(float64), `[CQ:image,file=62653a3deddd41d3d6f117d8744a4803.image]
+复读姬爬`)
+				} else {
+					send.SendGroupPost(msg["group_id"].(float64), `[CQ:image,file=39fe06f12c13d5aa0d7502df0f8a37a5.image]
+复读复读复读`)
+				}
+				repeat[msg["group_id"].(float64)].LastMessage = ""
+				repeat[msg["group_id"].(float64)].Count = 1
+				repeat[msg["group_id"].(float64)].HasRepeat = true
+				repeat[msg["group_id"].(float64)].UserIds = []float64{msg["user_id"].(float64)}
+				return
+			}
+		}
 		//及时砸了复读机并打断复读
 		if repeat[msg["group_id"].(float64)].Count > 8 {
 			rand.Seed(time.Now().Unix())

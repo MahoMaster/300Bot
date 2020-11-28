@@ -27,7 +27,15 @@ import (
 // }
 
 func HttpGet(url string) []byte {
-	resp, _ := http.Get(url)
+	defer func() {
+		if info := recover(); info != nil {
+			fmt.Println("芜锁胃", info)
+		}
+	}()
+	resp, err := http.Get(url)
+	if err != nil {
+		panic(err)
+	}
 	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
 
