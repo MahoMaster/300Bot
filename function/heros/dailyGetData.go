@@ -7,11 +7,8 @@ import (
 	"fmt"
 	"log"
 	"strconv"
-	"sync"
 	"time"
 )
-
-var wg sync.WaitGroup
 
 func GetDailyData() {
 	log.Println("开始获取数据")
@@ -25,7 +22,9 @@ func GetDailyData() {
 		}
 
 	}
-	log.Printf("已获取共%n个人数据", len(rankList))
+	log.Printf("已获取共%d个人数据", len(rankList))
+
+	g := goroutineNew(6)
 
 	//获取每个人今天打的竞技场数据
 	matchList := []api.List{}
@@ -34,40 +33,27 @@ func GetDailyData() {
 	today := int64(time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()) - 60*60*24 //凌晨时间
 	todayStr := util.Time2Str(today)
 	for _, value := range rankList {
-		go getOneMatchList(value, todayStr, &matchList)
+		g.c <- struct{}{}
+		go func() {
+			getOneMatchList(value, todayStr, &matchList)
+			<-g.c
+		}()
 		wg.Add(1)
-		// oneMatchList := []api.List{}
-		// i := 0
-		// for true {
-		// 	temp, msg := api.Getlist(value.Name, strconv.Itoa(i))
-		// 	if msg == "" {
-		// 		if len(temp.List) != 0 {
-		// 			time := temp.List[0].MatchDate
-		// 			if time >= todayStr {
-		// 				oneMatchList = append(oneMatchList, temp.List...)
-		// 				i += 10
-		// 			} else {
-		// 				break
-		// 			}
-		// 		} else {
-		// 			break
-		// 		}
-		// 	} else {
-		// 		break
-		// 	}
-		// }
-		// matchList = append(matchList, oneMatchList...)
 	}
 	wg.Wait()
-	log.Printf("已获取到所有人的今日比赛数据,共%n条", len(matchList))
+	log.Printf("已获取到所有人的今日比赛数据,共%d条", len(matchList))
 
 	//收集比赛数据
 	log.Println("开始处理数据")
 	for _, value := range matchList {
-		getMatchData(value)
-		// wg.Add(1)
+		g.c <- struct{}{}
+		go func() {
+			getMatchData(value)
+			<-g.c
+		}()
+		wg.Add(1)
 	}
-	// wg.Wait()
+	wg.Wait()
 	herosModel.DelHerosWinRedis()
 	end := time.Now()
 	log.Println("今日数据收集已完毕")
@@ -115,8 +101,8 @@ func getMatchData(match api.List) {
 			}
 		}
 	}
-	// wg.Done()
-	log.Println("完成1局")
+	wg.Done()
+	// log.Println("完成1局")
 }
 
 func getSkillEquipHeros(one api.EveryOne, matchType int) {

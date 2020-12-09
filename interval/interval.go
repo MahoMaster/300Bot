@@ -7,7 +7,7 @@ import (
 	"300Bot/store"
 	"300Bot/util"
 	"encoding/json"
-	"fmt"
+	"log"
 	"strconv"
 
 	"github.com/robfig/cron"
@@ -25,7 +25,7 @@ func init() {
 }
 
 func timeInterval() {
-	fmt.Println("定时事件注册")
+	log.Println("定时事件注册")
 	// 每天七点通知天气
 	// spec := "0 7 * * *"
 	// c.AddFunc(spec, func() {
@@ -35,7 +35,7 @@ func timeInterval() {
 	c.AddFunc(spec1, func() {
 		sayGoodMorning()
 	})
-	spec2 := "30 3 * * *"
+	spec2 := "58 10 * * *"
 	c.AddFunc(spec2, func() {
 		heros.GetDailyData()
 	})
@@ -49,7 +49,7 @@ func sayGoodMorning() {
 		var honor map[string]interface{}
 		err := json.Unmarshal(util.HttpGet(host+"/get_group_honor_info?group_id="+groupstr+"&type=talkative"), &honor)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			continue
 		}
 		if honor["retcode"].(float64) == 0 {
