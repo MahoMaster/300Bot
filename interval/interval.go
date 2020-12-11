@@ -35,7 +35,7 @@ func timeInterval() {
 	c.AddFunc(spec1, func() {
 		sayGoodMorning()
 	})
-	spec2 := "30 3 * * *"
+	spec2 := "30 2 * * *"
 	c.AddFunc(spec2, func() {
 		heros.GetDailyData()
 	})

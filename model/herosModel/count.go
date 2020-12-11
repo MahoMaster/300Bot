@@ -9,6 +9,9 @@ import (
 	"github.com/garyburd/redigo/redis"
 )
 
+//
+//英雄胜率统计部分
+//
 func CountHerosWin(hero api.Hero, time string, matchID int, isWin int) {
 	num := 0
 	db.Get(&num, "select count(1) from count_heros_winrate where match_id=? and heros_id=? and is_win=?", matchID, hero.ID, isWin)
@@ -64,4 +67,24 @@ func GetHerosWin(time string, orderType int, descType string, limit string) []He
 	c.Do("SET", redisKey, string(temp))
 	c.Do("expire", redisKey, 86400)
 	return countList[0:limitInt]
+}
+
+//
+//装备胜率kd部分
+//
+type EquipCount struct {
+	Equip_id int    `json:"equip_id,omitempty"`
+	Name     string `json:"name,omitempty"`
+	Time     string `json:"time"`
+	Icon     string `json:"icon,omitempty"`
+	Win      int    `json:"win,omitempty"`
+	Lose     int    `json:"lose,omitempty"`
+	Kill     int    `json:"kill,omitempty"`
+	Death    int    `json:"death,omitempty"`
+	Type     int    `json:"type"`
+}
+
+func CountEquipWinAndKd(count []EquipCount) {
+	db.NamedExec("insert into count_equip_winrate (equip_id,time,win,lose,`kill`,death,type) values (:equip_id,:time,:win,:lose,:kill,:death,:type)", count)
+
 }
