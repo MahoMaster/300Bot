@@ -26,4 +26,5 @@ func (g *Glimit) goroutineRun(f func()) {
 		f()
 		<-g.c
 	}()
+	wg.Add(1)
 }

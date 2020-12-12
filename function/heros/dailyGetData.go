@@ -17,15 +17,11 @@ var lostMatchListNum = 0
 var lostMatchInfoNum = 0
 
 func GetDailyData() {
-	removeRepetitio = sync.Map{}
-	lostRankListNum = 0
-	lostMatchListNum = 0
-	lostMatchInfoNum = 0
 	log.Println("开始获取数据")
 	begin := time.Now()
 	//获取每天团分前2000人的数据
 	rankList := []api.RankList{}
-	for i := 0; i < 2000; i += 50 {
+	for i := 0; i < 50; i += 50 {
 		temp, msg := api.GetRank("1", strconv.Itoa(i))
 		if msg == "" {
 			rankList = append(rankList, temp.Rank.List...)
@@ -45,27 +41,20 @@ func GetDailyData() {
 	today := int64(time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).Unix()) - 60*60*24 //凌晨时间
 	todayStr := util.Time2Str(today)
 	for _, value := range rankList {
-		g.c <- struct{}{}
-		go func() {
+		g.goroutineRun(func() {
 			getOneMatchList(value, todayStr, &matchList)
-			<-g.c
-		}()
-		wg.Add(1)
+		})
 	}
 	wg.Wait()
 	log.Printf("已获取到所有人的今日比赛数据,共%d条", len(matchList))
-
 	//收集比赛数据
 	log.Println("开始处理数据")
 
 	var equipData sync.Map //统计装备胜负kd
 	for _, value := range matchList {
-		g.c <- struct{}{}
-		go func() {
+		g.goroutineRun(func() {
 			getMatchData(value, &equipData)
-			<-g.c
-		}()
-		wg.Add(1)
+		})
 	}
 	wg.Wait()
 
@@ -84,7 +73,15 @@ func GetDailyData() {
 	fmt.Println("丢失人物列表次数:", lostMatchListNum)
 	fmt.Println("丢失人物列表次数:", lostMatchInfoNum)
 	fmt.Println("总共用时:", end.Sub(begin))
+
+	//重置部分数据
+	removeRepetitio = sync.Map{}
+	lostRankListNum = 0
+	lostMatchListNum = 0
+	lostMatchInfoNum = 0
 }
+
+//获取每个人今日打了哪些场
 func getOneMatchList(value api.RankList, todayStr string, matchList *[]api.List) {
 	oneMatchList := []api.List{}
 	i := 0
@@ -111,6 +108,8 @@ func getOneMatchList(value api.RankList, todayStr string, matchList *[]api.List)
 	wg.Done()
 	// log.Println("完成1人")
 }
+
+//获取比赛详细数据
 func getMatchData(match api.List, equipData *sync.Map) {
 	matchInfo, msg := api.GetMatch(match.MatchID)
 	if msg == "" {
@@ -163,6 +162,7 @@ func getSkillEquipHeros(one api.EveryOne, matchType int, equipData *sync.Map, is
 	}
 }
 
+//统计装备kd胜负
 func getEquipData(equipData *sync.Map, one api.EveryOne, equip api.Equip, is_win int, matchType int) {
 	count1, has := equipData.Load(strconv.Itoa(matchType) + ":" + strconv.Itoa(equip.ID))
 	win := 0
