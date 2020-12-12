@@ -39,7 +39,7 @@ func timeInterval() {
 	c.AddFunc(spec2, func() {
 		heros.GetDailyData()
 	})
-	heros.GetDailyData()
+	// heros.GetDailyData()
 	// sendWether()
 }
 
