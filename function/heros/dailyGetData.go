@@ -21,7 +21,7 @@ func GetDailyData() {
 	begin := time.Now()
 	//获取每天团分前2000人的数据
 	rankList := []api.RankList{}
-	for i := 0; i < 50; i += 50 {
+	for i := 0; i < 2000; i += 50 {
 		temp, msg := api.GetRank("1", strconv.Itoa(i))
 		if msg == "" {
 			rankList = append(rankList, temp.Rank.List...)

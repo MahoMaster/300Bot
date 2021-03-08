@@ -44,3 +44,10 @@ func SendPoke(group float64, qq string) {
 	poke := fmt.Sprintf("[CQ:poke,qq=%s]", qq)
 	SendGroupPost(group, poke)
 }
+
+func SendLike(qq string, times int) {
+	timesStr := strconv.Itoa(times)
+	fmt.Println("/send_like?user_id=" + qq + "&times=" + timesStr)
+	res := util.HttpGet(host + "/send_like?user_id=" + qq + "&times=" + timesStr)
+	fmt.Println(string(res))
+}

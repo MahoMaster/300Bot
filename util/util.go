@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"time"
 )
@@ -34,7 +35,8 @@ func HttpGet(url string) []byte {
 	}()
 	resp, err := http.Get(url)
 	if err != nil {
-		panic(err)
+		// panic(err)
+		log.Println(err)
 	}
 	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
@@ -53,7 +55,8 @@ func HttpPost(url string, data interface{}) []byte {
 	jsonStr, _ := json.Marshal(data)
 	resp, err := client.Post(url, "application/json", bytes.NewBuffer(jsonStr))
 	if err != nil {
-		panic(err)
+		// panic(err)
+		log.Println(err)
 	}
 	defer resp.Body.Close()
 

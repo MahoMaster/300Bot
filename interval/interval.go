@@ -41,6 +41,7 @@ func timeInterval() {
 	})
 	// heros.GetDailyData()
 	// sendWether()
+	// sendLike()
 }
 
 func sayGoodMorning() {
@@ -63,6 +64,10 @@ func sayGoodMorning() {
 			}
 		}
 	}
+}
+
+func sendLike() {
+	send.SendLike("675559614", 10)
 }
 
 // func sendWether() {

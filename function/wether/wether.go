@@ -5,6 +5,7 @@ import (
 	"300Bot/send"
 	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/kirinlabs/HttpRequest"
 )
@@ -35,7 +36,8 @@ func sendWetherData(id int, msg map[string]interface{}) {
 		"cityId": id,
 	})
 	if err != nil {
-		panic(err)
+		// panic(err)
+		log.Println(err)
 	}
 	defer res.Close()
 
