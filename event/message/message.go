@@ -1,6 +1,8 @@
 package message
 
 import (
+	"300Bot/conf"
+	"300Bot/function/chatGPT"
 	"300Bot/function/emotion"
 	"300Bot/function/repeat"
 	"300Bot/send"
@@ -27,7 +29,7 @@ func CheckType(msg map[string]interface{}) {
 
 // var groupIdList []float64
 
-//私聊消息
+// 私聊消息
 func private(msg map[string]interface{}) {
 	log.Println("私聊消息", msg["raw_message"])
 	// send.SendPrivate(msg["user_id"].(float64), `[CQ:image,file=0c9df9e9aaa98350bb28c1ca2661c5e0.image]`)
@@ -38,7 +40,7 @@ func private(msg map[string]interface{}) {
 
 }
 
-//群消息
+// 群消息
 func group(msg map[string]interface{}) {
 	log.Println("群消息", msg)
 	//是否被ban
@@ -74,7 +76,7 @@ func group(msg map[string]interface{}) {
 
 	//查询at
 	self_id_str := strconv.FormatFloat(self_id, 'f', -1, 64)
-	if strings.Index(msg["raw_message"].(string), "[CQ:at,qq="+self_id_str+"]") != -1 {
+	if strings.Contains(msg["raw_message"].(string), "[CQ:at,qq="+self_id_str+"]") {
 		msgStr = exstrings.Replace(msgStr, "[CQ:at,qq="+self_id_str+"]", "", -1)
 		msgStr = strings.TrimSpace(msgStr)
 		//如果是at的关键词就直接结束
@@ -82,6 +84,18 @@ func group(msg map[string]interface{}) {
 			return
 		}
 	}
+
+	//查询呼叫机器人名字
+	botName := conf.Config.BotName
+	if strings.Contains(msg["raw_message"].(string), botName) {
+		msgStr = strings.TrimSpace(msgStr)
+
+		chatGPT.AddPlan(msgStr, msg)
+		//呼叫chatGPT,结束
+		return
+
+	}
+
 	msgStr = strings.TrimSpace(msgStr)
 	//获取关键字
 	msgArr := strings.Fields(msgStr)

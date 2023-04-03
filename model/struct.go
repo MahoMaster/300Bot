@@ -1,9 +1,10 @@
 package model
 
 type Group struct {
-	Id       int     `json:"id"`
-	Group_id float64 `json:"group_id"`
-	Manager  float64 `json:"manager"`
+	Id              int     `json:"id"`
+	Group_id        float64 `json:"group_id"`
+	Manager         float64 `json:"manager"`
+	Gpt_personality string  `json:"gpt_personality"`
 }
 
 type At struct {
@@ -35,4 +36,19 @@ type User struct {
 	Imgbackground_set int    `json:"imgbackground_set,omitempty"`
 	Check_in          int64  `json:"check_in,omitempty"`
 	Points            int    `json:"points,omitempty"`
+	Last_chatgpt      string `json:"last_chatgpt"`
+	Use_tokens        int    `json:"use_tokens"`
+	Gpt_personality   string `json:"gpt_personality"`
+	Gpt_use_person    int    `json:"gpt_use_person"`
+}
+
+type GPTPersonality struct {
+	Id              string `json:"id"`
+	Gpt_personality string `json:"gpt_personality"`
+}
+
+type UserGPTSetting struct {
+	Gpt_use_person int    `json:"gpt_use_person"`
+	Last_chatgpt   string `json:"last_chatgpt"`
+	Is_ban         int    `json:"is_ban,omitempty"`
 }

@@ -70,7 +70,7 @@ func Synthesis(text string, msg map[string]interface{}) {
 	}
 
 	fg := image.Black
-	draw.Draw(jpg, jpg.Bounds(), bg, image.ZP, draw.Src)
+	draw.Draw(jpg, jpg.Bounds(), bg, image.Point{}, draw.Src)
 	c := freetype.NewContext()
 	c.SetDPI(dpi)
 	c.SetFont(f)

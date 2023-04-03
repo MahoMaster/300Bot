@@ -2,7 +2,6 @@ package interval
 
 import (
 	"300Bot/conf"
-	"300Bot/function/heros"
 	"300Bot/send"
 	"300Bot/store"
 	"300Bot/util"
@@ -35,13 +34,14 @@ func timeInterval() {
 	c.AddFunc(spec1, func() {
 		sayGoodMorning()
 	})
-	spec2 := "30 2 * * *"
-	c.AddFunc(spec2, func() {
-		heros.GetDailyData()
-	})
+	// spec2 := "30 2 * * *"
+	// c.AddFunc(spec2, func() {
+	// 	heros.GetDailyData()
+	// })
 	// heros.GetDailyData()
 	// sendWether()
 	// sendLike()
+	// sayGoodMorning()
 }
 
 func sayGoodMorning() {
@@ -53,6 +53,8 @@ func sayGoodMorning() {
 			log.Println(err)
 			continue
 		}
+		res, _ := json.Marshal(honor)
+		log.Println(string(res))
 		if honor["retcode"].(float64) == 0 {
 			if honor["data"].(map[string]interface{})["current_talkative"] != nil {
 				dragonKing := honor["data"].(map[string]interface{})["current_talkative"].(map[string]interface{})

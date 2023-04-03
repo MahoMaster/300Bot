@@ -12,3 +12,12 @@ func GetGroupList() []Group {
 	}
 	return mods
 }
+
+func GetGroupAllGPTPersonality() []GPTPersonality {
+	var mods = make([]GPTPersonality, 0)
+	err := db.Select(&mods, "SELECT group_id as id,gpt_personality from `group` where not isNull(gpt_personality)")
+	if err != nil {
+		fmt.Println(err)
+	}
+	return mods
+}

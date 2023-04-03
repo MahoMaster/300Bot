@@ -217,5 +217,5 @@ func (wsConn *wsConnection) close() {
 // 启动程序
 func StartWebsocket() {
 	WsConnAll = make(map[int64]*wsConnection)
-	http.HandleFunc("/ws", wsHandler)
+	http.HandleFunc("/", wsHandler)
 }

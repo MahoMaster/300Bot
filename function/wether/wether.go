@@ -1,6 +1,7 @@
 package wether
 
 import (
+	"300Bot/conf"
 	"300Bot/model"
 	"300Bot/send"
 	"encoding/json"
@@ -9,8 +10,6 @@ import (
 
 	"github.com/kirinlabs/HttpRequest"
 )
-
-const wetherApiCode = "c77bc904cfa94d4294ed1a6d69de16ab"
 
 func GetCityWether(name string, msg map[string]interface{}) {
 	cityId := model.GetCityId(name)
@@ -29,7 +28,7 @@ func sendWetherData(id int, msg map[string]interface{}) {
 	req := HttpRequest.NewRequest()
 	req.SetHeaders(map[string]string{
 		"Content-Type":  "application/x-www-form-urlencoded",
-		"Authorization": "APPCODE " + wetherApiCode,
+		"Authorization": "APPCODE " + conf.Config.WetherApiCode,
 	})
 
 	res, err := req.Post(url, map[string]interface{}{

@@ -8,7 +8,7 @@ import (
 
 var host = "http://300report.jumpw.com"
 
-//获取玩家基本信息
+// 获取玩家基本信息
 type Role struct {
 	RoleName   string // 角色名
 	RoleLevel  int    // 角等级
@@ -43,7 +43,7 @@ func Getrole(name string) (GetRoleRes, string) {
 	}
 }
 
-//获取最新的战斗列表
+// 获取最新的战斗列表
 type Hero struct {
 	ID       int    // ID
 	Name     string // 名称
@@ -74,7 +74,7 @@ func Getlist(name string, index string) (GetlistRes, string) {
 	}
 }
 
-//获取比赛详细信息
+// 获取比赛详细信息
 type Skill struct {
 	ID       int    // ID
 	Name     string // 名称
@@ -139,7 +139,7 @@ func GetMatch(id int) (GetMatchRes, string) {
 	}
 }
 
-//获取排行榜信息
+// 获取排行榜信息
 type RankList struct {
 	Index      int    // 名次
 	Url        string // 链接地址

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"300Bot/conf"
 	"fmt"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -14,7 +15,7 @@ var err error
 // var redisErr error
 
 func init() {
-	db, err = sqlx.Open(`mysql`, `root:root@tcp(127.0.0.1:3306)/300bot?charset=utf8mb4&parseTime=true`)
+	db, err = sqlx.Open(`mysql`, conf.Config.DatabaseUser+`:`+conf.Config.DatabasePassword+`@tcp(`+conf.Config.DatabaseHost+`)/`+conf.Config.BotDatabaseName+`?charset=utf8mb4&parseTime=true`)
 	if err != nil {
 		panic(err)
 	}

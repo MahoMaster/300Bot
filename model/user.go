@@ -93,3 +93,42 @@ func BanSomeOne(qqstr string, ban int) bool {
 	db.Exec("update user set is_ban=? where qq=?", ban, qqstr)
 	return true
 }
+
+func GetChatGptInfo(qq float64) UserGPTSetting {
+	qqstr := strconv.FormatFloat(qq, 'f', -1, 64)
+	var mod UserGPTSetting
+	err := db.Get(&mod, "SELECT last_chatgpt,gpt_use_person,is_ban from `user` where qq=?", qqstr)
+	if err != nil {
+		if err.Error() == "sql: no rows in result set" {
+			CheckRegister(qqstr)
+			// db.Exec("insert into user (qq) values(?)", qqstr)
+		}
+	}
+	return mod
+}
+
+func LogUserUseTokens(qq float64, tokens_num int, last_id string) {
+
+	qqstr := strconv.FormatFloat(qq, 'f', -1, 64)
+	_, err = db.Exec("update `user` set use_tokens=use_tokens+?,last_chatgpt=? where qq=?", tokens_num, last_id, qqstr)
+	if err != nil {
+		fmt.Println(err)
+	}
+	return
+}
+
+func GetUserAllGPTPersonality() []GPTPersonality {
+	var mods = make([]GPTPersonality, 0)
+	err := db.Select(&mods, "SELECT qq as id,gpt_personality from `user` where not isNull(gpt_personality) and gpt_personality!=''")
+	if err != nil {
+		fmt.Println(err)
+	}
+	return mods
+}
+
+func SetGPTPersonality(qq float64, personality string) bool {
+	qqstr := strconv.FormatFloat(qq, 'f', -1, 64)
+	CheckRegister(qqstr)
+	db.Exec("update user set gpt_personality=? where qq=?", personality, qqstr)
+	return true
+}

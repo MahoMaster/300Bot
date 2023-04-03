@@ -15,9 +15,21 @@ type config struct {
 	//调用发送等api的端口
 	ApiPort string `json:"apiPort"`
 	//机器人qq号
-	BotQQ string `json:"botQQ"`
+	BotQQ   string `json:"botQQ"`
+	BotName string `json:"botName"`
 	//最高权限QQ
 	Manager string `json:"manager"`
+
+	DatabaseHost     string `json:"databaseHost"`
+	DatabaseUser     string `json:"databaseUser"`
+	DatabasePassword string `json:"databasePassword"`
+	BotDatabaseName  string `json:"botDatabaseName"`
+	HeroDatabaseName string `json:"heroDatabaseName"`
+	ImmortalbaseName string `json:"immortalbaseName"`
+
+	ChatGPTKey    string `json:"chatGPTkey"`
+	WetherApiCode string `json:"wetherApiCode"`
+	VPN           string `json:"VPN"`
 }
 
 const (
@@ -41,7 +53,7 @@ func file_get_contents(path string) ([]byte, error) {
 func init() {
 	var content []byte
 	// 读取配置文件
-	content, err := file_get_contents("./conf/conf.json")
+	content, err := file_get_contents("./conf/conf.local.json")
 	if err != nil {
 		fmt.Println("配置文件读取失败")
 		panic(err.Error())

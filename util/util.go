@@ -1,12 +1,15 @@
 package util
 
 import (
+	"300Bot/conf"
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -61,6 +64,45 @@ func HttpPost(url string, data interface{}) []byte {
 	defer resp.Body.Close()
 
 	result, _ := ioutil.ReadAll(resp.Body)
+	return result
+}
+
+func ChatGPTHttpPost(urll string, data interface{}) []byte {
+	defer func() {
+		if info := recover(); info != nil {
+			fmt.Println("芜锁胃", info)
+		}
+	}()
+	proxyUrl, err := url.Parse("http://127.0.0.1:7078")
+	if err != nil {
+		panic(err)
+	}
+	transport := &http.Transport{
+		Proxy:           http.ProxyURL(proxyUrl),
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	// 超时时间：60秒
+	client := &http.Client{Timeout: 60 * time.Second, Transport: transport}
+	// js,err:=json.MarshalIndent(data,"","\t")
+	jsonStr, _ := json.Marshal(data)
+	req, err := http.NewRequest("POST", urll, bytes.NewBuffer(jsonStr))
+	if err != nil {
+		// panic(err)
+		log.Println(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", conf.Config.ChatGPTKey))
+
+	resp, err := client.Do(req)
+	// resp, err := client.Post(url, "application/json", bytes.NewBuffer(jsonStr))
+	if err != nil {
+		// panic(err)
+		log.Println(err)
+	}
+	defer resp.Body.Close()
+
+	result, _ := ioutil.ReadAll(resp.Body)
+	fmt.Println(string(result))
 	return result
 }
 

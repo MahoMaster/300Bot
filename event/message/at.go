@@ -1,6 +1,7 @@
 package message
 
 import (
+	"300Bot/function/chatGPT"
 	"300Bot/model"
 	"300Bot/send"
 	"strconv"
@@ -34,5 +35,12 @@ func checkAtWords(msgStr string, msg map[string]interface{}) bool {
 			return true
 		}
 	}
-	return false
+
+	chatGPT.AddPlan(msgStr, msg)
+	// if len(res) != 0 {
+	// send.SendGroupPost(msg["group_id"].(float64), strings.TrimSpace(res))
+	return true
+	// }
+
+	// return false
 }

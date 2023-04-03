@@ -35,6 +35,11 @@ func SendGroupPost(group float64, msg string) {
 
 }
 
+func SendTTS(group float64, msg string) {
+	tts := fmt.Sprintf("[CQ:tts,text=%s]", msg)
+	SendGroupPost(group, tts)
+}
+
 func SendGift(group float64, qq string, num int) {
 	gitf := fmt.Sprintf("[CQ:gift,qq=%s,id=%d]", qq, num)
 	SendGroupPost(group, gitf)
