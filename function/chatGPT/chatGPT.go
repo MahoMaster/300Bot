@@ -145,6 +145,27 @@ func AskForChatGPT(msg string, qq float64, session string) (openai.ChatCompletio
 	return resp, err
 }
 
+func JustChatGpt(msg string, qq string) (openai.ChatCompletionResponse, error) {
+	resp, err := client.CreateChatCompletion(
+		context.Background(),
+		openai.ChatCompletionRequest{
+			Model: openai.GPT3Dot5Turbo0301,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    "user",
+					Content: msg,
+				},
+			},
+			User: qq,
+		},
+	)
+	if err != nil {
+		fmt.Printf("ChatCompletion error: %v\n", err)
+		return resp, err
+	}
+	return resp, err
+}
+
 func CreateImg(msgStr string, qq float64) (bool, string) {
 	qqStr := strconv.FormatFloat(qq, 'f', -1, 64)
 	type req struct {

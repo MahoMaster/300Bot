@@ -1,0 +1,22 @@
+package chatGPT
+
+import (
+	"300Bot/send"
+	"strings"
+)
+
+var gi = goroutineNew(3)
+
+func GetUserStory(name string, storyStr string, qq string, msg map[string]interface{}) {
+	gi.goroutineRun(func() {
+
+		//模板
+		template := name + `是一名修仙者，` + name + storyStr + `，请在70字内随机编写出` + name + `的身世故事，描写到准备踏入修仙之前即可`
+
+		res, err := JustChatGpt(template, qq)
+		if err == nil && res.Choices[0].Message.Content != "" {
+
+			send.SendGroupPost(msg["group_id"].(float64), strings.TrimSpace(res.Choices[0].Message.Content))
+		}
+	})
+}

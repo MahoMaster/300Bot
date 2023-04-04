@@ -30,7 +30,7 @@ func timeInterval() {
 	// c.AddFunc(spec, func() {
 	// 	sendWether()
 	// })
-	spec1 := "30 9 * * *"
+	spec1 := "0 38 9 * * *"
 	c.AddFunc(spec1, func() {
 		sayGoodMorning()
 	})

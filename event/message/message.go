@@ -4,6 +4,7 @@ import (
 	"300Bot/conf"
 	"300Bot/function/chatGPT"
 	"300Bot/function/emotion"
+	"300Bot/function/immortal"
 	"300Bot/function/repeat"
 	"300Bot/send"
 	"300Bot/store"
@@ -73,6 +74,14 @@ func group(msg map[string]interface{}) {
 	self_id := msg["self_id"].(float64)
 
 	msgStr := msg["raw_message"].(string)
+
+	//查询#号，接入修仙游戏
+	msgStr = strings.TrimSpace(msgStr)
+	if msgStr[0] == '#' {
+		if immortal.CheckKeywords(msgStr, msg) {
+			return
+		}
+	}
 
 	//查询at
 	self_id_str := strconv.FormatFloat(self_id, 'f', -1, 64)

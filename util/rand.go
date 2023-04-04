@@ -56,3 +56,9 @@ func RandDigitStr(ln int) string {
 	}
 	return *(*string)(unsafe.Pointer(&buf))
 }
+
+// RandInt 返回随机数 包含start和end
+// 只包含整数
+func RandInt(start int, end int) int {
+	return rand.Intn(end+1) + start
+}
