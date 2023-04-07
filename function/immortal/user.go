@@ -227,7 +227,7 @@ func GetUserAllInfoByQQ(qq string, msg map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
-	tempalte := u.Name + `:
+	template := u.Name + `:
 	体质:` + Number2String(u.Constitution) + `,
 	智力:` + Number2String(u.Intelligence) + `,
 	悟性:` + Number2String(u.Insight) + `,
@@ -245,8 +245,37 @@ func GetUserAllInfoByQQ(qq string, msg map[string]interface{}) error {
 	灵石:` + Number2String(uc.Stone) + `,
 	行动力:` + Number2String(ap.Point) + `/30`
 
-	send.SendGroupPost(msg["group_id"].(float64), tempalte)
+	send.SendGroupPost(msg["group_id"].(float64), template)
 
 	return nil
 
+}
+
+func GetUserSkillList(qq string, page int, is_equip int, msg map[string]interface{}) error {
+	u, err := immortalModel.GetUserInfoByQQ(qq)
+	if err != nil {
+		return err
+	}
+	us, err := immortalModel.GetUserSkillList(u.Id, page, is_equip)
+	if err != nil {
+		return err
+	}
+	template := u.Name + `的功法:
+------------------------------`
+	for _, item := range us {
+		template = template + `
+	功法` + Number2String(item.Sid) + `:` + item.Skill.Name
+
+		if item.Is_equip == 1 {
+			template = template + `【已配置】`
+		}
+
+		template = template + `,
+	` + item.Skill.Intro + `
+------------------------------`
+	}
+
+	send.SendGroupPost(msg["group_id"].(float64), template)
+
+	return nil
 }

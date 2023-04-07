@@ -53,7 +53,7 @@ func BuySkill(qq string, sidStr string, msg map[string]interface{}) error {
 		return errors.New("灵石不够啊衰仔")
 	}
 
-	us, _ := immortalModel.GetUserSkill(u.Id, sid, 0)
+	us, _ := immortalModel.GetUserSkillOne(u.Id, sid, 0)
 	if us.Sid != 0 {
 		return errors.New("你都有了还买个锤子")
 	}

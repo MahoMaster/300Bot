@@ -102,7 +102,7 @@ func BuySkill(uid int, price int, sid int) error {
 
 }
 
-func GetUserSkill(uid int, sid int, hasDetail int) (User_skill, error) {
+func GetUserSkillOne(uid int, sid int, hasDetail int) (User_skill, error) {
 	var us User_skill
 
 	r := db.Table("user_skill").Where("uid = ? and sid = ?", uid, sid).First(&us)
@@ -118,5 +118,33 @@ func GetUserSkill(uid int, sid int, hasDetail int) (User_skill, error) {
 		us.Skill = skill
 	}
 
+	return us, nil
+}
+
+func GetUserSkillList(uid int, page int, is_equip int) ([]User_skill, error) {
+	limit := 6
+	start := (page - 1) * limit
+	var us = make([]User_skill, 0)
+
+	is_equipFilter := -1
+	if is_equip == 0 {
+		is_equipFilter = 1
+	}
+	if is_equip == 1 {
+		is_equipFilter = 0
+	}
+	r := db.Table("user_skill").Where("uid = ? and is_equip!=?  limit ?,?", uid, is_equipFilter, start, limit).Find(&us)
+	if r.RowsAffected == 0 {
+		return us, errors.New("啥玩意儿啊，没有啊")
+	}
+	for index, item := range us {
+
+		skill, err := GetSkillDetail(item.Sid, 0)
+		if err != nil {
+			return us, err
+		}
+		us[index].Skill = skill
+
+	}
 	return us, nil
 }

@@ -107,6 +107,30 @@ func CheckKeywords(msgStr string, msg map[string]interface{}) bool {
 			return true
 		}
 		return true
+	case "我的功法":
+		is_equip := -1
+		var err error
+		if len(msgArr) >= 3 {
+			is_equip, err = strconv.Atoi(msgArr[2])
+			if err != nil {
+				send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+				return true
+			}
+		}
+		page := 1
+		if len(msgArr) >= 2 {
+			page, err = strconv.Atoi(msgArr[1])
+			if err != nil {
+				send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+				return true
+			}
+		}
+		err = GetUserSkillList(qq, page, is_equip, msg)
+		if err != nil {
+			send.SendGroupPost(msg["group_id"].(float64), err.Error())
+			return true
+		}
+		return true
 	case "test":
 		send.SendGroupPost(msg["group_id"].(float64), "test")
 		return true
