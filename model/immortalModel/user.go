@@ -80,3 +80,43 @@ func UpdateUserStone(uid int, stoneAdd int) error {
 	// if result.Error != nil {
 	return result.Error
 }
+
+func BuySkill(uid int, price int, sid int) error {
+	err := db.Transaction(func(tx *gorm.DB) error {
+
+		if err := tx.Table("user_cultivate").Where("uid=?", uid).Update("stone", gorm.Expr("stone-?", price)).Error; err != nil {
+			return err
+		}
+		var us = User_skill{
+			Uid:         uid,
+			Sid:         sid,
+			Is_equip:    0,
+			Create_time: int(time.Now().Unix()),
+		}
+		if err := tx.Table("user_skill").Create(&us).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+	return err
+
+}
+
+func GetUserSkill(uid int, sid int, hasDetail int) (User_skill, error) {
+	var us User_skill
+
+	r := db.Table("user_skill").Where("uid = ? and sid = ?", uid, sid).First(&us)
+	if r.RowsAffected == 0 {
+		return us, errors.New("不存在")
+	}
+
+	if hasDetail != 0 {
+		skill, err := GetSkillDetail(sid, 0)
+		if err != nil {
+			return us, err
+		}
+		us.Skill = skill
+	}
+
+	return us, nil
+}

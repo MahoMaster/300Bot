@@ -66,12 +66,12 @@ func CheckKeywords(msgStr string, msg map[string]interface{}) bool {
 	case "系统功法商城":
 		name := ""
 		var err error
-		if len(msgArr) > 2 {
-			name = msgArr[1]
+		if len(msgArr) >= 3 {
+			name = msgArr[2]
 		}
 		page := 1
-		if len(msgArr) > 3 {
-			page, err = strconv.Atoi(msgArr[2])
+		if len(msgArr) >= 2 {
+			page, err = strconv.Atoi(msgArr[1])
 			if err != nil {
 				send.SendGroupPost(msg["group_id"].(float64), "参数错误")
 				return true
@@ -82,6 +82,33 @@ func CheckKeywords(msgStr string, msg map[string]interface{}) bool {
 			send.SendGroupPost(msg["group_id"].(float64), err.Error())
 			return true
 		}
+		return true
+	case "查询功法":
+		if len(msgArr) < 2 {
+
+			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+			return true
+		}
+		err := GetSkillDetail(msgArr[1], msg)
+		if err != nil {
+			send.SendGroupPost(msg["group_id"].(float64), err.Error())
+			return true
+		}
+		return true
+	case "购买功法":
+		if len(msgArr) < 2 {
+
+			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+			return true
+		}
+		err := BuySkill(qq, msgArr[1], msg)
+		if err != nil {
+			send.SendGroupPost(msg["group_id"].(float64), err.Error())
+			return true
+		}
+		return true
+	case "test":
+		send.SendGroupPost(msg["group_id"].(float64), "test")
 		return true
 	default:
 

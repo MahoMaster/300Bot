@@ -1,6 +1,8 @@
 package immortalModel
 
-import "errors"
+import (
+	"errors"
+)
 
 func GetAdminShop(typeInt int, name string, page int) ([]Shop_admin, error) {
 	var sa = make([]Shop_admin, 0)
@@ -11,20 +13,46 @@ func GetAdminShop(typeInt int, name string, page int) ([]Shop_admin, error) {
 	if typeInt == 1 {
 		tableName = "skill"
 	}
-	start := (page - 1) * 5
-	r := db.Table("shop_admin").Select("shop_admin.*").Joins("left join "+tableName+" on skill.id=shop_admin.gid").Where("shop_admin.type = ? and skill.name like ? limit ?,?", typeInt, "%"+name+"%", start, 10).Find(&sa)
+	start := (page - 1) * 6
+	r := db.Table("shop_admin").Select("shop_admin.*").Joins("left join "+tableName+" on skill.id=shop_admin.gid").Where("shop_admin.type = ? and skill.name like ? limit ?,?", typeInt, "%"+name+"%", start, 6).Find(&sa)
 	if r.RowsAffected == 0 {
 		return sa, errors.New("没咯")
 	}
 	for index, item := range sa {
 
 		if item.Type == 1 {
-			var skill Skill
-			r = db.Table("skill").Where("id = ?", item.Gid).First(&skill)
-			if r.Error != nil {
-				return sa, r.Error
+			// var skill Skill
+			// r = db.Table("skill").Where("id = ?", item.Gid).First(&skill)
+			// if r.Error != nil {
+			// 	return sa, r.Error
+			// }
+			skill, err := GetSkillDetail(item.Gid, 0)
+			if err != nil {
+				return sa, err
 			}
 			sa[index].Skill = skill
+		}
+	}
+	return sa, nil
+}
+
+func GetAdminShopOne(typeInt int, gid int, hasDetail int) (Shop_admin, error) {
+	var sa Shop_admin
+	r := db.Table("shop_admin").Where("type = ? and gid=?", typeInt, gid).First(&sa)
+	if r.Error != nil {
+		return sa, r.Error
+	}
+	if hasDetail != 0 {
+		if sa.Type == 1 {
+			// r = db.Table("skill").Where("id = ?", sa.Gid).First(&skill)
+			// if r.Error != nil {
+			// 	return sa, r.Error
+			// }
+			skill, err := GetSkillDetail(sa.Gid, 0)
+			if err != nil {
+				return sa, err
+			}
+			sa.Skill = skill
 		}
 	}
 	return sa, nil

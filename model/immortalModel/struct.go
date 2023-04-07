@@ -68,7 +68,7 @@ type Skill struct {
 	Type     int           `json:"type"`                  //1为功法、2为技能
 	Actived  int           `json:"actived"`               //1为主动技能，2为被动技能
 	Level    int           `json:"level"`                 //等级
-	Root     string        `json:"root"`                  //五行
+	Root     int           `json:"root"`                  //五行
 	Intro    string        `json:"intro"`                 //描述
 	Level_up int           `json:"level_up"`              //技能等级提升后对应的skill
 	Entry    []Skill_entry `json:"entry" gorm:"-"`        //词条
@@ -84,11 +84,11 @@ type Skill_entry struct {
 }
 
 type Shop_admin struct {
-	Id    int     `gorm:"primary_key" json:"id"` //
-	Gid   int     `json:"gid"`                   //对应表得id
-	Type  int     `json:"type"`                  //1为功法技能，2为装备，3为材料
-	Price float64 `json:"price"`                 //价格
-	Skill Skill   `json:"skill" gorm:"-"`        //查出来得技能信息
+	Id    int   `gorm:"primary_key" json:"id"` //
+	Gid   int   `json:"gid"`                   //对应表得id
+	Type  int   `json:"type"`                  //1为功法技能，2为装备，3为材料
+	Price int   `json:"price"`                 //价格
+	Skill Skill `json:"skill" gorm:"-"`        //查出来得技能信息
 }
 
 type User_skill struct {

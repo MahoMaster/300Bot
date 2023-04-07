@@ -161,9 +161,9 @@ func CreateUser(qq string, name string, msg map[string]interface{}) (immortalMod
 
 	random := util.RandInt(0, 100)
 
-	if random < 5 { //家财万贯 送1000灵石
+	if random < 5 { //家财万贯 送5000灵石
 		story = append(story, "家财万贯")
-		uc.Stone = 1000
+		uc.Stone = 5000
 	}
 
 	random2 := util.RandInt(0, 100)

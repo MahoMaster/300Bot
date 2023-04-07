@@ -34,7 +34,18 @@ func SendGroupPost(group float64, msg string) {
 	util.HttpPost(host+"/send_group_msg", data)
 
 }
+func SendGroupPostHasRes(group float64, msg string) []byte {
+	groupstr := strconv.FormatFloat(group, 'f', -1, 64)
+	log.Println("发送消息到群" + groupstr + ":" + msg)
 
+	// var data map[string]interface{}
+	data := make(map[string]interface{})
+	data["group_id"] = group
+	data["message"] = msg
+
+	res := util.HttpPost(host+"/send_group_msg", data)
+	return res
+}
 func SendTTS(group float64, msg string) {
 	tts := fmt.Sprintf("[CQ:tts,text=%s]", msg)
 	SendGroupPost(group, tts)
