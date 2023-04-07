@@ -12,6 +12,9 @@ func CheckKeywords(msgStr string, msg map[string]interface{}) bool {
 	msgArr := strings.Fields(msgStr)
 	keyword := msgArr[0]
 	switch keyword {
+	case "帮助", "使用说明", "help":
+		send.SendGroupPost(msg["group_id"].(float64), "http://www.mahomaster.com:3000/Maho/300Bot/src/master/doc/immortal.md")
+		return true
 	case "创建角色", "生成角色":
 		flag, canDel := CheckUserByQQ(qq)
 		if flag {
@@ -39,6 +42,42 @@ func CheckKeywords(msgStr string, msg map[string]interface{}) bool {
 		return true
 	case "我的资料":
 		err := GetUserAllInfoByQQ(qq, msg)
+		if err != nil {
+			send.SendGroupPost(msg["group_id"].(float64), err.Error())
+			return true
+		}
+		return true
+	case "挖矿":
+		times := 1
+		var err error
+		if len(msgArr) > 1 {
+			times, err = strconv.Atoi(msgArr[1])
+			if err != nil {
+				send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+				return true
+			}
+		}
+		err = Mining(qq, msg, times)
+		if err != nil {
+			send.SendGroupPost(msg["group_id"].(float64), err.Error())
+			return true
+		}
+		return true
+	case "系统功法商城":
+		name := ""
+		var err error
+		if len(msgArr) > 2 {
+			name = msgArr[1]
+		}
+		page := 1
+		if len(msgArr) > 3 {
+			page, err = strconv.Atoi(msgArr[2])
+			if err != nil {
+				send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+				return true
+			}
+		}
+		err = GetSkillAdminShop(qq, msg, name, page)
 		if err != nil {
 			send.SendGroupPost(msg["group_id"].(float64), err.Error())
 			return true

@@ -1,6 +1,7 @@
 package immortalModel
 
 import (
+	"errors"
 	"log"
 
 	"github.com/garyburd/redigo/redis"
@@ -8,25 +9,27 @@ import (
 
 func SetRedis(key string, value string, expire int) {
 	c.Do("SET", key, value)
-	c.Do("expire", key, expire)
+	if expire != 0 {
+		c.Do("expire", key, expire)
+	}
 }
 
 func DelRedis(key string) {
 	c.Do("DEL", key)
 }
 
-func GetRedis(key string) (bool, string) {
+func GetRedis(key string) (string, error) {
 	exit, err := redis.Bool(c.Do("EXISTS", key))
 	if err != nil {
 
 		log.Println(err)
-		return false, ""
+		return "", err
 	} else {
 		if exit {
 			data, _ := redis.String(c.Do("GET", key))
-			return true, data
+			return data, nil
 		} else {
-			return false, ""
+			return "", errors.New("key不存在")
 		}
 	}
 }

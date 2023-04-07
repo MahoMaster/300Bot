@@ -3,6 +3,8 @@ package immortalModel
 import (
 	"errors"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 func GetUserInfoByQQ(qq string) (User, error) {
@@ -53,7 +55,7 @@ func LogUserStoryByQQ(qq string, story string) error {
 	if err != nil {
 		return err
 	}
-	result := db.Table("user_stroy").Create(&User_story{
+	result := db.Table("user_story").Create(&User_story{
 		Uid:         u.Id,
 		Story:       story,
 		Create_time: int(time.Now().Unix()),
@@ -71,4 +73,10 @@ func GetUserCultivateById(uid int) (User_cultivate, Level, error) {
 	}
 	r = db.Table("level").Where("id=?", uc.Level).Limit(1).First(&level)
 	return uc, level, r.Error
+}
+
+func UpdateUserStone(uid int, stoneAdd int) error {
+	result := db.Table("user_cultivate").Where("uid=?", uid).Update("stone", gorm.Expr("stone+?", stoneAdd))
+	// if result.Error != nil {
+	return result.Error
 }

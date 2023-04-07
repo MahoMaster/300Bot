@@ -12,6 +12,7 @@ import (
 	"time"
 )
 
+// 是否存在角色  是否允许删除角色
 func CheckUserByQQ(qq string) (bool, bool) {
 	u, err := immortalModel.GetUserInfoByQQ(qq)
 	if err != nil {
@@ -160,32 +161,36 @@ func CreateUser(qq string, name string, msg map[string]interface{}) (immortalMod
 
 	random := util.RandInt(0, 100)
 
-	if random < 4 { //家财万贯 送1000灵石
+	if random < 5 { //家财万贯 送1000灵石
 		story = append(story, "家财万贯")
 		uc.Stone = 1000
 	}
 
-	random = util.RandInt(0, 100)
+	random2 := util.RandInt(0, 100)
 
-	if random < 4 { //修仙世家 悟性+5，初始等级+1
+	if random2 < 5 { //修仙世家 悟性+5，初始等级+1
 		story = append(story, "修仙世家")
 		uc.Level = 2
 		user.Insight = user.Insight + 5
+
+		if random < 5 {
+			send.SendGroupPost(msg["group_id"].(float64), "修仙世家！家财万贯！双重世家！有欧皇！")
+		}
+
 	}
 
 	//创建角色
+	storyStr := strings.Join(story, ",")
+	if storyStr == "" {
+		storyStr = "平凡人一个"
+	}
+	user.User_story = storyStr
 	err := immortalModel.CreateUser(user, uc)
 	if err != nil {
 		send.SendGroupPost(msg["group_id"].(float64), "但是创建角色报错了，让管理员看看吧")
 		return user, err
 	}
 
-	storyStr := strings.Join(story, ",")
-
-	if storyStr == "" {
-		storyStr = "平凡人一个"
-	}
-	user.User_story = storyStr
 	roots_num_str := RootsNum2RootsNumStr(user.Roots_num)
 	//创建成功,发送属性
 	tempalte := user.Name + `:
@@ -204,7 +209,7 @@ func CreateUser(qq string, name string, msg map[string]interface{}) (immortalMod
 	send.SendGroupPost(msg["group_id"].(float64), tempalte)
 
 	//发送背景故事
-	chatGPT.GetUserStory(user.Name, storyStr+roots_num_str, qq, msg)
+	chatGPT.GetUserStory(user.Name, storyStr+",拥有"+roots_num_str, qq, msg)
 	return user, nil
 }
 
@@ -218,6 +223,10 @@ func GetUserAllInfoByQQ(qq string, msg map[string]interface{}) error {
 		return err
 	}
 	roots_num_str := RootsNum2RootsNumStr(u.Roots_num)
+	ap, err := immortalModel.GetActionPoint(qq)
+	if err != nil {
+		return err
+	}
 	tempalte := u.Name + `:
 	体质:` + Number2String(u.Constitution) + `,
 	智力:` + Number2String(u.Intelligence) + `,
@@ -233,7 +242,8 @@ func GetUserAllInfoByQQ(qq string, msg map[string]interface{}) error {
 	背景:` + u.User_story + `
 ---------------------------
 	` + level.Name + `:` + Number2String(uc.Aura) + `/` + Number2String(level.Up_need_aura) + `,
-	灵石:` + Number2String(uc.Stone)
+	灵石:` + Number2String(uc.Stone) + `,
+	行动力:` + Number2String(ap.Point) + `/30`
 
 	send.SendGroupPost(msg["group_id"].(float64), tempalte)
 

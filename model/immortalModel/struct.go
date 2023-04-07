@@ -1,5 +1,11 @@
 package immortalModel
 
+// 默认从redis去读，读不到就赋初始值30点。last_time为从满点进入开始回复得时间，
+type Action_Point struct {
+	Point     int `json:"point"`
+	Last_time int `json:"last_time"`
+}
+
 type Level struct {
 	Id           int    `gorm:"primary_key" json:"id"` //
 	Name         string `json:"name"`                  //名称
@@ -54,4 +60,41 @@ type User_story struct {
 	Uid         int    `gorm:"primary_key" json:"uid"` //
 	Story       string `json:"story"`                  //
 	Create_time int    `json:"create_time"`            //
+}
+
+type Skill struct {
+	Id       int           `gorm:"primary_key" json:"id"` //
+	Name     string        `json:"name"`                  //
+	Type     int           `json:"type"`                  //1为功法、2为技能
+	Actived  int           `json:"actived"`               //1为主动技能，2为被动技能
+	Level    int           `json:"level"`                 //等级
+	Root     string        `json:"root"`                  //五行
+	Intro    string        `json:"intro"`                 //描述
+	Level_up int           `json:"level_up"`              //技能等级提升后对应的skill
+	Entry    []Skill_entry `json:"entry" gorm:"-"`        //词条
+}
+
+type Skill_entry struct {
+	Id      int     `gorm:"primary_key" json:"id"` //
+	Sid     int     `json:"sid"`                   //
+	Type    int     `json:"type"`                  //1为修炼类，2为真属性类，3为假属性类，4为伤害类
+	Aim     string  `json:"aim"`                   //影响的值，例如aura,insight,hp,damage等
+	Val     float64 `json:"val"`                   //具体影响数值
+	Content string  `json:"content"`               //词条文本
+}
+
+type Shop_admin struct {
+	Id    int     `gorm:"primary_key" json:"id"` //
+	Gid   int     `json:"gid"`                   //对应表得id
+	Type  int     `json:"type"`                  //1为功法技能，2为装备，3为材料
+	Price float64 `json:"price"`                 //价格
+	Skill Skill   `json:"skill" gorm:"-"`        //查出来得技能信息
+}
+
+type User_skill struct {
+	Uid         int   `gorm:"primary_key" json:"uid"` //
+	Sid         int   `json:"sid"`                    //技能id
+	Is_equip    int   `json:"is_equip"`               //是否装备
+	Create_time int   `json:"create_time"`            //
+	Skill       Skill `json:"skill" gorm:"-"`         //查出来得技能信息
 }

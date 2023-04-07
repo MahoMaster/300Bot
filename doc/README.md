@@ -25,6 +25,7 @@
 #### 指令
 
 > 拓展指令可前往 [文档](http://www.mahomaster.com:3000/Maho/300Bot/src/master/doc/order.md) 查看
+> 修仙指令可前往 [文档](http://www.mahomaster.com:3000/Maho/300Bot/src/master/doc/immortal.md) 查看
 
 -   [x] 使用帮助
 -   [x] 整点二次元
