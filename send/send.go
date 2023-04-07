@@ -67,3 +67,11 @@ func SendLike(qq string, times int) {
 	res := util.HttpGet(host + "/send_like?user_id=" + qq + "&times=" + timesStr)
 	fmt.Println(string(res))
 }
+
+func SetStarMessage(message_id float64) {
+	data := make(map[string]interface{})
+	data["message_id"] = message_id
+
+	util.HttpPost(host+"/set_essence_msg", data)
+	// log.Println(string(res))
+}

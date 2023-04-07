@@ -5,7 +5,9 @@ import (
 	"300Bot/model/immortalModel"
 	"300Bot/send"
 	"300Bot/util"
+	"encoding/json"
 	"errors"
+	"log"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -118,8 +120,11 @@ func CreateUser(qq string, name string, msg map[string]interface{}) (immortalMod
 		user.SetValue(rootsArr[4], 20)
 	}
 
+	var needStarFlag = false //设置精华消息
+
 	//通报
 	if user.Roots_num == 1 {
+		needStarFlag = true
 		story = append(story, "天选之人")
 		send.SendGroupPost(msg["group_id"].(float64), "天选之人！单灵根！有欧皇！")
 	}
@@ -132,6 +137,7 @@ func CreateUser(qq string, name string, msg map[string]interface{}) (immortalMod
 	user.Lucky = util.RandInt(8, 12)
 	//通报
 	if user.Intelligence == 12 && user.Constitution == 12 && user.Insight == 12 && user.Spirit == 12 {
+		needStarFlag = true
 		story = append(story, "筋骨奇佳")
 		send.SendGroupPost(msg["group_id"].(float64), "筋骨奇佳！满资质！有欧皇！")
 
@@ -149,6 +155,7 @@ func CreateUser(qq string, name string, msg map[string]interface{}) (immortalMod
 	}
 	//通报
 	if user.Intelligence == 9 && user.Constitution == 9 && user.Insight == 9 && user.Spirit == 9 {
+		needStarFlag = true
 		story = append(story, "倒霉蛋")
 		send.SendGroupPost(msg["group_id"].(float64), "天生残废！最低资质！有眉笔！奖励高幸运")
 
@@ -206,10 +213,23 @@ func CreateUser(qq string, name string, msg map[string]interface{}) (immortalMod
 	火系:` + strconv.FormatFloat(user.Fire, 'f', -1, 64) + `
 	土系:` + strconv.FormatFloat(user.Earth, 'f', -1, 64) + `
 	背景:` + user.User_story
-	send.SendGroupPost(msg["group_id"].(float64), tempalte)
-
+	resB := send.SendGroupPostHasRes(msg["group_id"].(float64), tempalte)
 	//发送背景故事
 	chatGPT.GetUserStory(user.Name, storyStr+",拥有"+roots_num_str, qq, msg)
+
+	// log.Println(needStarFlag)
+	if needStarFlag {
+		var res map[string]interface{}
+		err = json.Unmarshal(resB, &res)
+		if err != nil {
+			log.Println(err)
+			send.SendGroupPost(msg["group_id"].(float64), "设置精华消息失败")
+			return user, nil
+		}
+		message_id := res["data"].(map[string]interface{})["message_id"].(float64)
+		send.SetStarMessage(message_id)
+	}
+
 	return user, nil
 }
 
@@ -277,5 +297,36 @@ func GetUserSkillList(qq string, page int, is_equip int, msg map[string]interfac
 
 	send.SendGroupPost(msg["group_id"].(float64), template)
 
+	return nil
+}
+
+func EquipSkill(qq string, sid int, status int, msg map[string]interface{}) error {
+	u, err := immortalModel.GetUserInfoByQQ(qq)
+	if err != nil {
+		return err
+	}
+	us, _ := immortalModel.GetUserSkillOne(u.Id, sid, 0)
+	if us.Sid == 0 {
+		return errors.New("你都没有你装备个锤子")
+	}
+
+	if us.Is_equip != status {
+		us.Is_equip = status
+		if status == 1 {
+			ec, err := immortalModel.GetUserSkillEquipCount(u.Id)
+			if err != nil {
+				return err
+			}
+			if ec >= 10 {
+				return errors.New("配置功法超过上限")
+			}
+		}
+
+		err := immortalModel.SetUserSkillEquip(us)
+		if err != nil {
+			return err
+		}
+	}
+	send.SendGroupPost(msg["group_id"].(float64), "设置成功")
 	return nil
 }

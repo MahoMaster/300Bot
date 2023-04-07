@@ -148,3 +148,14 @@ func GetUserSkillList(uid int, page int, is_equip int) ([]User_skill, error) {
 	}
 	return us, nil
 }
+
+func GetUserSkillEquipCount(uid int) (int64, error) {
+	var count int64
+	r := db.Table("user_skill").Where("uid = ? and is_equip!=?  ", uid, 1).Count(&count)
+	return count, r.Error
+}
+
+func SetUserSkillEquip(us User_skill) error {
+	r := db.Table("user_skill").Where("uid=? and sid=?", us.Uid, us.Sid).Update("is_equip", us.Is_equip)
+	return r.Error
+}

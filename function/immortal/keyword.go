@@ -131,8 +131,40 @@ func CheckKeywords(msgStr string, msg map[string]interface{}) bool {
 			return true
 		}
 		return true
+	case "装备功法":
+		if len(msgArr) < 2 {
+			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+			return false
+		}
+		sid, err := strconv.Atoi(msgArr[1])
+		if err != nil {
+			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+			return false
+		}
+		err = EquipSkill(qq, sid, 1, msg)
+		if err != nil {
+			send.SendGroupPost(msg["group_id"].(float64), err.Error())
+			return true
+		}
+		return true
+	case "卸下功法":
+		if len(msgArr) < 2 {
+			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+			return false
+		}
+		sid, err := strconv.Atoi(msgArr[1])
+		if err != nil {
+			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+			return false
+		}
+		err = EquipSkill(qq, sid, 0, msg)
+		if err != nil {
+			send.SendGroupPost(msg["group_id"].(float64), err.Error())
+			return true
+		}
+		return true
 	case "test":
-		send.SendGroupPost(msg["group_id"].(float64), "test")
+		send.SendGroupPostHasRes(msg["group_id"].(float64), "test")
 		return true
 	default:
 
