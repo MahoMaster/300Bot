@@ -45,7 +45,7 @@ func BuySkill(qq string, sidStr string, msg map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
-	uc, _, err := immortalModel.GetUserCultivateById(u.Id)
+	uc, _, _, err := immortalModel.GetUserCultivateById(u.Id)
 	if err != nil {
 		return err
 	}

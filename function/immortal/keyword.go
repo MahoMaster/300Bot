@@ -163,6 +163,34 @@ func CheckKeywords(msgStr string, msg map[string]interface{}) bool {
 			return true
 		}
 		return true
+	case "修炼":
+		// return true
+		if len(msgArr) < 2 {
+			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+			return false
+		}
+		sid, err := strconv.Atoi(msgArr[1])
+		if err != nil {
+			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+			return false
+		}
+
+		use := 1
+		if len(msgArr) >= 3 {
+			use, err = strconv.Atoi(msgArr[2])
+			if err != nil {
+				send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+				return true
+			}
+		}
+
+		err = Cultivate(qq, use, sid, msg)
+		if err != nil {
+			send.SendGroupPost(msg["group_id"].(float64), err.Error())
+			return true
+		}
+		return true
+
 	case "test":
 		send.SendGroupPostHasRes(msg["group_id"].(float64), "test")
 		return true

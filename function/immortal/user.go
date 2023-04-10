@@ -238,7 +238,7 @@ func GetUserAllInfoByQQ(qq string, msg map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
-	uc, level, err := immortalModel.GetUserCultivateById(u.Id)
+	uc, level, _, err := immortalModel.GetUserCultivateById(u.Id)
 	if err != nil {
 		return err
 	}
@@ -305,7 +305,7 @@ func EquipSkill(qq string, sid int, status int, msg map[string]interface{}) erro
 	if err != nil {
 		return err
 	}
-	us, _ := immortalModel.GetUserSkillOne(u.Id, sid, 0)
+	us, _ := immortalModel.GetUserSkillOne(u.Id, sid, 1)
 	if us.Sid == 0 {
 		return errors.New("你都没有你装备个锤子")
 	}
@@ -322,7 +322,7 @@ func EquipSkill(qq string, sid int, status int, msg map[string]interface{}) erro
 			}
 		}
 
-		err := immortalModel.SetUserSkillEquip(us)
+		err := immortalModel.SetUserSkillEquip(us, u)
 		if err != nil {
 			return err
 		}

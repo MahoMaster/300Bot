@@ -6,11 +6,12 @@ type Action_Point struct {
 	Last_time int `json:"last_time"`
 }
 
-type Level struct {
-	Id           int    `gorm:"primary_key" json:"id"` //
-	Name         string `json:"name"`                  //名称
-	Next_level   int    `json:"next_level"`            //下一个境界
-	Up_need_aura int    `json:"up_need_aura"`          //突破需要灵力
+type Cultivate_Aura_Add struct {
+	// Sum       int `json:"sum"`       //累计的数值
+	Left_time  int     `json:"left_time"`  //剩余修炼时间
+	Start_time int     `json:"start_time"` //刷新修炼的时间 前10分钟1.2倍速 前半小时满速 一小时70%  前三个小时50% 八个小时10%
+	Count_time int     `json:"count_time"` //从start_time第几分钟已经清了sum
+	Speed      float64 `json:"speed"`      //修炼速度
 }
 
 type User struct {
@@ -48,12 +49,33 @@ func (user *User) SetValue(field string, value float64) {
 		user.Earth = value
 	}
 }
+func (user *User) GetValue(field string) float64 {
+	switch field {
+	case "Gold":
+		return user.Gold
+	case "Wood":
+		return user.Wood
+	case "Water":
+		return user.Water
+	case "Fire":
+		return user.Fire
+	case "Earth":
+		return user.Earth
+	}
+	return 0
+}
 
 type User_cultivate struct {
 	Uid   int `gorm:"primary_key" json:"uid"` //
 	Stone int `json:"stone"`                  //灵石数量
 	Aura  int `json:"aura"`                   //灵气值
 	Level int `json:"level"`                  //当前境界
+}
+type Level struct {
+	Id           int    `gorm:"primary_key" json:"id"` //
+	Name         string `json:"name"`                  //名称
+	Next_level   int    `json:"next_level"`            //下一个境界
+	Up_need_aura int    `json:"up_need_aura"`          //突破需要灵力
 }
 
 type User_story struct {

@@ -64,19 +64,36 @@ func LogUserStoryByQQ(qq string, story string) error {
 	return result.Error
 }
 
-func GetUserCultivateById(uid int) (User_cultivate, Level, error) {
+func GetUserCultivateById(uid int) (User_cultivate, Level, Cultivate_Aura_Add, error) {
 	var uc User_cultivate
 	var level Level
+	var caa Cultivate_Aura_Add
 	r := db.Table("user_cultivate").Where("uid=?", uid).Limit(1).First(&uc)
 	if r.Error != nil {
-		return uc, level, r.Error
+		return uc, level, caa, r.Error
 	}
 	r = db.Table("level").Where("id=?", uc.Level).Limit(1).First(&level)
-	return uc, level, r.Error
+
+	caa, sum_aura, err := GetUserCultivateSum(uid)
+	if err == nil {
+		uc.Aura = uc.Aura + sum_aura
+		if uc.Aura > level.Up_need_aura {
+			uc.Aura = level.Up_need_aura
+		}
+		db.Table("user_cultivate").Where("uid=?", uid).Update("aura", uc.Aura)
+	}
+
+	return uc, level, caa, r.Error
 }
 
 func UpdateUserStone(uid int, stoneAdd int) error {
 	result := db.Table("user_cultivate").Where("uid=?", uid).Update("stone", gorm.Expr("stone+?", stoneAdd))
+	// if result.Error != nil {
+	return result.Error
+}
+
+func UpdateUserAura(uid int, aura int) error {
+	result := db.Table("user_cultivate").Where("uid=?", uid).Update("aura", gorm.Expr("aura+?", aura))
 	// if result.Error != nil {
 	return result.Error
 }
@@ -111,7 +128,7 @@ func GetUserSkillOne(uid int, sid int, hasDetail int) (User_skill, error) {
 	}
 
 	if hasDetail != 0 {
-		skill, err := GetSkillDetail(sid, 0)
+		skill, err := GetSkillDetail(sid, 1)
 		if err != nil {
 			return us, err
 		}
@@ -155,7 +172,31 @@ func GetUserSkillEquipCount(uid int) (int64, error) {
 	return count, r.Error
 }
 
-func SetUserSkillEquip(us User_skill) error {
-	r := db.Table("user_skill").Where("uid=? and sid=?", us.Uid, us.Sid).Update("is_equip", us.Is_equip)
-	return r.Error
+func SetUserSkillEquip(us User_skill, u User) error {
+
+	err := db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Table("user_skill").Where("uid=? and sid=?", us.Uid, us.Sid).Update("is_equip", us.Is_equip).Error; err != nil {
+			return err
+		}
+		reviseFlag := false
+		for _, entry := range us.Skill.Entry {
+			if entry.Type == 2 {
+				val := entry.Val
+				if us.Is_equip == 0 {
+					val = -1 * val
+				}
+				u.SetValue(entry.Aim, u.GetValue(entry.Aim)+val)
+				reviseFlag = true
+			}
+		}
+		if reviseFlag {
+			if err := tx.Table("user").Where("id=?", u.Id).Save(&u).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	return err
 }
