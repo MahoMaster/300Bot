@@ -7,6 +7,7 @@ import (
 	"300Bot/util"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"math/rand"
 	"strconv"
@@ -238,7 +239,7 @@ func GetUserAllInfoByQQ(qq string, msg map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
-	uc, level, _, err := immortalModel.GetUserCultivateById(u.Id)
+	uc, level, acc, err := immortalModel.GetUserCultivateById(u.Id)
 	if err != nil {
 		return err
 	}
@@ -263,8 +264,8 @@ func GetUserAllInfoByQQ(qq string, msg map[string]interface{}) error {
 ---------------------------
 	` + level.Name + `:` + Number2String(uc.Aura) + `/` + Number2String(level.Up_need_aura) + `,
 	灵石:` + Number2String(uc.Stone) + `,
-	行动力:` + Number2String(ap.Point) + `/30`
-
+	行动力:` + Number2String(ap.Point) + `/30,
+	剩余修炼时间:` + fmt.Sprintf("%.0f", float64((acc.Left_time-acc.Count_time)/60)) + `分钟`
 	send.SendGroupPost(msg["group_id"].(float64), template)
 
 	return nil

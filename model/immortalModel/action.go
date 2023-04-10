@@ -79,6 +79,7 @@ func GetUserCultivateSum(uid int) (Cultivate_Aura_Add, int, error) {
 	if used {
 		DelRedis(keyC + uidStr)
 		caa.Left_time = 0
+		caa.Count_time = 0
 	} else {
 		caaStrB, err := json.Marshal(caa)
 		if err != nil {

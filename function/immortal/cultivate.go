@@ -16,7 +16,7 @@ func Cultivate(qq string, use int, sid int, msg map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
-
+	oneUse2Min := 10 //1行动点修炼10分钟
 	u, err := immortalModel.GetUserInfoByQQ(qq)
 	if err != nil {
 		return err
@@ -64,7 +64,7 @@ func Cultivate(qq string, use int, sid int, msg map[string]interface{}) error {
 
 	log.Println(speed)
 	if caa.Left_time == 0 { //新建
-		caa.Left_time = 20 * 60 * use
+		caa.Left_time = oneUse2Min * 60 * use
 		caa.Speed = speed
 		caa.Start_time = int(time.Now().Unix())
 		caa.Count_time = 0
@@ -80,7 +80,7 @@ func Cultivate(qq string, use int, sid int, msg map[string]interface{}) error {
 		return err
 	}
 
-	template := `增加修炼时间` + Number2String(20*use) + `分钟,
+	template := `增加修炼时间` + Number2String(oneUse2Min*use) + `分钟,
 ` + speedUp + `,
 悟性加成：` + Number2String((u.Insight-10)*10) + `%,
 修炼速度:` + fmt.Sprintf("%.2f", speed) + `灵力/秒`
