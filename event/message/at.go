@@ -20,7 +20,7 @@ func updateAtList() {
 
 func checkAtWords(msgStr string, msg map[string]interface{}) bool {
 	for _, value := range AtList {
-		if strings.Index(msgStr, value.Keyword) != -1 {
+		if strings.Contains(msgStr, value.Keyword) {
 			reply := ""
 			if value.Need_at == 1 {
 				msgIdStr := strconv.FormatFloat(msg["message_id"].(float64), 'f', -1, 64)

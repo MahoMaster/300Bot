@@ -191,14 +191,14 @@ func CreateImg(msgStr string, qq float64) (bool, string) {
 	// type redata struct {
 	// 	Url string `json:"url"`
 	// }
-	resdata, has := res["data"]
+	resdata, _ := res["data"]
 	// fmt.Println(resdata)
 	resdata1 := resdata.([]interface{})
 	// fmt.Println(resdata1)
 	//if has {
 	return true, resdata1[0].(map[string]interface{})["url"].(string)
 	//	} else {
-	return false, ""
+	//return false, ""
 	//}
 
 }

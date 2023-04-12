@@ -10,7 +10,6 @@ import (
 	"image/draw"
 	_ "image/jpeg"
 	"image/png"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -58,7 +57,7 @@ func Synthesis(text string, msg map[string]interface{}) {
 	)
 
 	flag.Parse()
-	fontBytes, err := ioutil.ReadFile(fontfile)
+	fontBytes, err := os.ReadFile(fontfile)
 	if err != nil {
 		fmt.Println(err)
 		return

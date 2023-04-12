@@ -61,7 +61,8 @@ func CreateUser(qq string, name string, msg map[string]interface{}) (immortalMod
 		return immortalModel.User{}, errors.New("角色名重复")
 	}
 
-	rand.Seed(time.Now().UnixNano())
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	// rand.Seed(time.Now().UnixNano())
 
 	user := immortalModel.User{}
 	uc := immortalModel.User_cultivate{}
@@ -75,7 +76,7 @@ func CreateUser(qq string, name string, msg map[string]interface{}) (immortalMod
 	//随机灵根数,0.5%概率为单灵根，2%概率双灵根，5%概率三灵根，10%概率四灵根，100%概率五灵根
 	roots := util.RandInt(0, 1000)
 	rootsArr := []string{"Wood", "Gold", "Water", "Fire", "Earth"} //对应金木水火土
-	rand.Shuffle(len(rootsArr), func(i, j int) {
+	rng.Shuffle(len(rootsArr), func(i, j int) {
 		rootsArr[i], rootsArr[j] = rootsArr[j], rootsArr[i]
 	})
 	if roots < 5 {

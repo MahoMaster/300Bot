@@ -19,12 +19,12 @@ func CheckType(msg map[string]interface{}) {
 	switch msg["message_type"] {
 	case "private":
 		private(msg)
-		break
+
 	case "group":
 		group(msg)
-		break
+
 	default:
-		break
+
 	}
 }
 

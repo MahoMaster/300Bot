@@ -22,9 +22,9 @@ func level1Up(u immortalModel.User, uc immortalModel.User_cultivate, level immor
 	send.SendGroupPost(msg["group_id"].(float64), u.Name+`将开始突破`)
 	go func() {
 		// chatGPT.LevelUpBeforeStory(u.Name, level.Name, next_level.Name, u.Qq, msg)
-		time.Sleep(2)
+		time.Sleep(2 * time.Second)
 		// chatGPT.LevelUpIngStory(u.Name, level.Name, next_level.Name, u.Qq, msg)
-		time.Sleep(2)
+		time.Sleep(2 * time.Second)
 		if randomUp > 65 {
 			send.SendGroupPost(msg["group_id"].(float64), u.Name+`突破成功，踏进了真正的修仙之路`)
 			uc.Level = next_level.Id
@@ -65,9 +65,9 @@ func level2Up(u immortalModel.User, uc immortalModel.User_cultivate, level immor
 	send.SendGroupPost(msg["group_id"].(float64), u.Name+`将开始突破到`+next_level.Name)
 	go func() {
 		// chatGPT.LevelUpBeforeStory(u.Name, level.Name, next_level.Name, u.Qq, msg)
-		time.Sleep(2)
+		time.Sleep(2 * time.Second)
 		// chatGPT.LevelUpIngStory(u.Name, level.Name, next_level.Name, u.Qq, msg)
-		time.Sleep(2)
+		time.Sleep(2 * time.Second)
 		if randomUp > 95 {
 			send.SendGroupPost(msg["group_id"].(float64), u.Name+`突破成功`)
 			uc.Level = next_level.Id
@@ -108,9 +108,9 @@ func level3Up(u immortalModel.User, uc immortalModel.User_cultivate, level immor
 	send.SendGroupPost(msg["group_id"].(float64), u.Name+`将开始突破到`+next_level.Name)
 	go func() {
 		// chatGPT.LevelUpBeforeStory(u.Name, level.Name, next_level.Name, u.Qq, msg)
-		time.Sleep(2)
+		time.Sleep(2 * time.Second)
 		// chatGPT.LevelUpIngStory(u.Name, level.Name, next_level.Name, u.Qq, msg)
-		time.Sleep(2)
+		time.Sleep(2 * time.Second)
 		if randomUp > 95 {
 			send.SendGroupPost(msg["group_id"].(float64), u.Name+`突破成功`)
 			uc.Level = next_level.Id

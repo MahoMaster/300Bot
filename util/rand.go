@@ -17,7 +17,7 @@ const (
 	digitMask = 1<<4 - 1
 )
 
-var rng = rand.NewSource(time.Now().UnixNano())
+var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 // RandStr 返回指定长度的随机字符串
 // 包含数字 小写字母
@@ -60,5 +60,5 @@ func RandDigitStr(ln int) string {
 // RandInt 返回随机数 包含start和end
 // 只包含整数
 func RandInt(start int, end int) int {
-	return rand.Intn(end-start+1) + start
+	return rng.Intn(end-start+1) + start
 }

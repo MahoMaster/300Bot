@@ -27,16 +27,12 @@ func Break(qq string, msg map[string]interface{}) error {
 	switch level.Id {
 	case 1:
 		level1Up(u, uc, level, msg)
-		break
 	case 2:
 		level2Up(u, uc, level, msg)
-		break
 	case 3:
 		level3Up(u, uc, level, msg)
-		break
 	default:
 		return errors.New("天地之间仿佛少了一些能够突破的规则，速速催促管理员写吧")
-		break
 	}
 
 	return nil

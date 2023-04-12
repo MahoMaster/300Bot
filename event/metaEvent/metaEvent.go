@@ -6,12 +6,12 @@ func CheckType(msg map[string]interface{}) {
 	switch msg["meta_event_type"] {
 	case "heartbeat":
 		heartbeat(msg)
-		break
+
 	case "lifecycle":
 		lifecycle(msg)
-		break
+
 	default:
-		break
+
 	}
 }
 
