@@ -1,13 +1,48 @@
 package immortal
 
 import (
+	"300Bot/conf"
 	"300Bot/model/immortalModel"
 	"300Bot/send"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 )
+
+// 突破
+func Break(qq string, msg map[string]interface{}) error {
+	u, err := immortalModel.GetUserInfoByQQ(qq)
+	if err != nil {
+		return err
+	}
+	uc, level, _, err := immortalModel.GetUserCultivateById(u.Id)
+	if err != nil {
+		return err
+	}
+
+	if uc.Aura < level.Up_need_aura {
+		return errors.New("少年还需多加修炼")
+	}
+
+	switch level.Id {
+	case 1:
+		level1Up(u, uc, level, msg)
+		break
+	case 2:
+		level2Up(u, uc, level, msg)
+		break
+	case 3:
+		level3Up(u, uc, level, msg)
+		break
+	default:
+		return errors.New("天地之间仿佛少了一些能够突破的规则，速速催促管理员写吧")
+		break
+	}
+
+	return nil
+}
+
+var logMoneyCultivate = make(map[string]*time.Timer)
 
 // 每次进入修炼会刷新时间累计
 func Cultivate(qq string, use int, sid int, msg map[string]interface{}) error {
@@ -21,7 +56,7 @@ func Cultivate(qq string, use int, sid int, msg map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
-	_, _, caa, err := immortalModel.GetUserCultivateById(u.Id)
+	uc, level, caa, err := immortalModel.GetUserCultivateById(u.Id)
 	if err != nil {
 		return err
 	}
@@ -51,39 +86,59 @@ func Cultivate(qq string, use int, sid int, msg map[string]interface{}) error {
 		symbiosis := u.GetValue(Root2SkillRootField(GetSymbiosis(root)[0]))
 		restrained := u.GetValue(Root2SkillRootField(GetRestrained(root)[0]))
 		speed = float64(speed * (1 + self/100 + symbiosis/1000 - restrained/1000))
+		speed = float64(speed * (1 + float64(u.Insight-10)/30)) //悟性加成
 		speedUp = `主灵根加成:` + Number2String(self) + `%,
+悟性加成：` + Number2String((u.Insight-10)*100/20) + `%,
 相生相克加成:` + fmt.Sprintf("%.2f", symbiosis/10-restrained/10) + `%`
 	} else {
-		speed = float64(speed * (1 + float64(u.Constitution-10)/10))
+		speed = float64(speed * (1 + float64(u.Constitution-10)*10/100))
 		speedUp = `体质加成:` + Number2String((u.Constitution-10)*10) + `%`
 	}
 
-	speed = float64(speed * (1 + float64(u.Insight-10)/10)) //悟性加成
+	speed = speed / 60
 
-	speed = speed / 30
-
-	log.Println(speed)
 	if caa.Left_time == 0 { //新建
 		caa.Left_time = oneUse2Min * 60 * use
 		caa.Speed = speed
 		caa.Start_time = int(time.Now().Unix())
 		caa.Count_time = 0
 	} else {
-		caa.Left_time = caa.Left_time + 20*60*use - caa.Count_time
+		caa.Left_time = caa.Left_time + oneUse2Min*60*use - caa.Count_time
 		caa.Speed = speed
 		caa.Start_time = int(time.Now().Unix())
 		caa.Count_time = 0
 	}
 
-	err = immortalModel.SetUserCultivate(u.Id, caa)
+	needTime, err := immortalModel.SetUserCultivate(u, caa, uc, level)
 	if err != nil {
 		return err
 	}
 
+	for _, moneyOne := range conf.Config.MoneyList {
+		if moneyOne == qq {
+			// log.Println(needTime)
+			if needTime > 0 {
+				timer, ok := logMoneyCultivate[qq]
+				if ok {
+					if timer != nil {
+						timer.Stop()
+					}
+
+				}
+				timer = time.AfterFunc(time.Second*time.Duration(needTime), func() {
+					send.SendGroupPost(msg["group_id"].(float64), "[CQ:at,qq="+qq+"] 你的修炼已经ok啦！")
+					logMoneyCultivate[qq] = nil
+				})
+				logMoneyCultivate[qq] = timer
+
+			}
+
+		}
+	}
+
 	template := `增加修炼时间` + Number2String(oneUse2Min*use) + `分钟,
 ` + speedUp + `,
-悟性加成：` + Number2String((u.Insight-10)*10) + `%,
-修炼速度:` + fmt.Sprintf("%.2f", speed) + `灵力/秒`
+修炼速度:` + fmt.Sprintf("%.2f", speed) + `灵力/秒,`
 
 	send.SendGroupPost(msg["group_id"].(float64), template)
 

@@ -97,7 +97,11 @@ func UpdateUserAura(uid int, aura int) error {
 	// if result.Error != nil {
 	return result.Error
 }
-
+func UpdateUserLevel(uid int, level int) error {
+	result := db.Table("user_cultivate").Where("uid=?", uid).Update("level", level)
+	// if result.Error != nil {
+	return result.Error
+}
 func BuySkill(uid int, price int, sid int) error {
 	err := db.Transaction(func(tx *gorm.DB) error {
 

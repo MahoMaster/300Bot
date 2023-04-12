@@ -34,6 +34,20 @@ func SendGroupPost(group float64, msg string) {
 	util.HttpPost(host+"/send_group_msg", data)
 
 }
+
+func SendPrivatePostHasGroup(qq float64, group_id float64, msg string) {
+	groupstr := strconv.FormatFloat(group_id, 'f', -1, 64)
+	qqStr := strconv.FormatFloat(qq, 'f', -1, 64)
+	log.Println("通过群聊" + groupstr + "发送临时会话消息到" + qqStr + ":" + msg)
+
+	// var data map[string]interface{}
+	data := make(map[string]interface{})
+	data["user_id"] = qqStr
+	data["group_id"] = group_id
+	data["message"] = msg
+
+	util.HttpPost(host+"/send_private_msg", data)
+}
 func SendGroupPostHasRes(group float64, msg string) []byte {
 	groupstr := strconv.FormatFloat(group, 'f', -1, 64)
 	log.Println("发送消息到群" + groupstr + ":" + msg)

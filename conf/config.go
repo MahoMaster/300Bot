@@ -30,6 +30,8 @@ type config struct {
 	ChatGPTKey    string `json:"chatGPTkey"`
 	WetherApiCode string `json:"wetherApiCode"`
 	VPN           string `json:"VPN"`
+
+	MoneyList []string `json:"moneyList"` //赞助列表
 }
 
 const (

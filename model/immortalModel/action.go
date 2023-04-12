@@ -3,7 +3,6 @@ package immortalModel
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"math"
 	"strconv"
 	"time"
@@ -51,8 +50,8 @@ func GetUserCultivateSum(uid int) (Cultivate_Aura_Add, int, error) {
 	var caa Cultivate_Aura_Add
 	var sum_aura int
 	caaStr, err := GetRedis(keyC + uidStr)
-	log.Println(keyC + uidStr)
-	log.Println("这是查询到的数据", caaStr)
+	// log.Println(keyC + uidStr)
+	// log.Println("这是查询到的数据", caaStr)
 	if err != nil {
 		return caa, sum_aura, err
 	}
@@ -72,7 +71,7 @@ func GetUserCultivateSum(uid int) (Cultivate_Aura_Add, int, error) {
 	has_count_time := caa.Count_time //已经统计了多少时间
 
 	sum_time := caa.GetSumRank(pass_time) - caa.GetSumRank(has_count_time) //等价于这么多秒
-	log.Println("总共过去了多少时间", int(math.Floor((sum_time))))
+	// log.Println("总共过去了多少时间", int(math.Floor((sum_time))))
 	sum_aura = int(math.Floor((caa.Speed * sum_time)))
 	caa.Count_time = pass_time
 
@@ -85,26 +84,29 @@ func GetUserCultivateSum(uid int) (Cultivate_Aura_Add, int, error) {
 		if err != nil {
 			return caa, 0, err
 		}
-		log.Println("这是计算后的数据", string(caaStrB))
+		// log.Println("这是计算后的数据", string(caaStrB))
 		SetRedis(keyC+uidStr, string(caaStrB), 0)
 	}
 	return caa, sum_aura, nil
 }
 
-func SetUserCultivate(uid int, caa Cultivate_Aura_Add) error {
+func SetUserCultivate(u User, caa Cultivate_Aura_Add, uc User_cultivate, level Level) (int, error) {
+	uid := u.Id
 	uidStr := strconv.Itoa(uid)
 	caaStr, err := json.Marshal(caa)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	log.Println("这是要设置的数据", string(caaStr))
+	// log.Println("这是要设置的数据", string(caaStr))
 	SetRedis(keyC+uidStr, string(caaStr), 0)
-	return nil
+	needTime := caa.GetTimeFromAura(level.Up_need_aura-uc.Aura, caa.Speed)
+	// log.Println(needTime)
+	return needTime, nil
 }
 
 // 前10分钟1.2倍速 前半小时满速 一小时70%  前三个小时50% 八个小时10%
 func (caa *Cultivate_Aura_Add) GetSumRank(timeInt int) float64 {
-	log.Println("输入的timeInt", timeInt)
+	// log.Println("输入的timeInt", timeInt)
 	var sum float64 = 0
 	time := float64(timeInt)
 	if time <= 10*60 {
@@ -121,6 +123,23 @@ func (caa *Cultivate_Aura_Add) GetSumRank(timeInt int) float64 {
 		sum = 1.2*30*60 + 1*20*60 + 0.7*30*60 + 0.5*2*60*60 + 0.1*5*60*60
 	}
 	return sum
+}
+
+func (caa *Cultivate_Aura_Add) GetTimeFromAura(aura int, speed float64) int {
+	time := 1 // 从第 1 秒开始计时
+	for {
+		// 计算当前时间的排名分数
+		rank := caa.GetSumRank(time)
+		// 计算当前时间的 aura 值
+		currentAura := int(math.Floor(speed * rank))
+		// 判断是否达到给定的 aura 值
+		if currentAura >= aura {
+			break
+		}
+		// 更新时间参数，继续计算
+		time++
+	}
+	return time
 }
 
 func UseActionPoint(qq string, use int) error {

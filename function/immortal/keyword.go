@@ -10,6 +10,9 @@ func CheckKeywords(msgStr string, msg map[string]interface{}) bool {
 	qq := strconv.FormatFloat(msg["user_id"].(float64), 'f', -1, 64)
 	msgStr = msgStr[1:]
 	msgArr := strings.Fields(msgStr)
+	if len(msgArr) == 0 {
+		return false
+	}
 	keyword := msgArr[0]
 	switch keyword {
 	case "帮助", "使用说明", "help":
@@ -134,12 +137,12 @@ func CheckKeywords(msgStr string, msg map[string]interface{}) bool {
 	case "装备功法":
 		if len(msgArr) < 2 {
 			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
-			return false
+			return true
 		}
 		sid, err := strconv.Atoi(msgArr[1])
 		if err != nil {
 			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
-			return false
+			return true
 		}
 		err = EquipSkill(qq, sid, 1, msg)
 		if err != nil {
@@ -155,7 +158,7 @@ func CheckKeywords(msgStr string, msg map[string]interface{}) bool {
 		sid, err := strconv.Atoi(msgArr[1])
 		if err != nil {
 			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
-			return false
+			return true
 		}
 		err = EquipSkill(qq, sid, 0, msg)
 		if err != nil {
@@ -167,12 +170,12 @@ func CheckKeywords(msgStr string, msg map[string]interface{}) bool {
 		// return true
 		if len(msgArr) < 2 {
 			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
-			return false
+			return true
 		}
 		sid, err := strconv.Atoi(msgArr[1])
 		if err != nil {
 			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
-			return false
+			return true
 		}
 
 		use := 1
@@ -190,7 +193,14 @@ func CheckKeywords(msgStr string, msg map[string]interface{}) bool {
 			return true
 		}
 		return true
-
+	case "突破":
+		// return true
+		err := Break(qq, msg)
+		if err != nil {
+			send.SendGroupPost(msg["group_id"].(float64), err.Error())
+			return true
+		}
+		return true
 	case "test":
 		send.SendGroupPostHasRes(msg["group_id"].(float64), "test")
 		return true
