@@ -14,6 +14,10 @@ func SetRedis(key string, value string, expire int) {
 	}
 }
 
+func SetRedisExpire(key string, expire int) {
+	c.Do("expire", key, expire)
+}
+
 func DelRedis(key string) {
 	c.Do("DEL", key)
 }

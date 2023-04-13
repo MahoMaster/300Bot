@@ -54,14 +54,14 @@ func LevelUpIngStory(name string, level1Name string, level2Name string, qq strin
 	})
 }
 
-func LevelUpResultStory(name string, level1Name string, level2Name string, qq string, succ int, msg map[string]interface{}) {
+func LevelUpResultStory(name string, level1Name string, level2Name string, qq string, succ int, get string, msg map[string]interface{}) {
 	gi.goroutineRun(func() {
 		result := "失败了，状态跌落，需要重头再来"
 		if succ == 1 {
 			result = "成功了"
 		}
 		//模板
-		template := name + `是一名修仙者，今天试图从` + level1Name + `突破到` + level2Name + `，` + result + `,修为从低到高分为凡人、炼气、筑基、金丹、元婴、化神，每个修为分为九层，请用60字以内的一段话随机描述突破后的环境描写和心情描写`
+		template := name + `是一名修仙者，今天试图从` + level1Name + `突破到` + level2Name + `，` + result + `,` + get + `修为从低到高分为凡人、炼气、筑基、金丹、元婴、化神，每个修为分为九层，请用60字以内的一段话随机描述突破后的环境描写和心情描写`
 		log.Println(template)
 		res, err := JustChatGpt(template, qq)
 		if err == nil && res.Choices[0].Message.Content != "" {

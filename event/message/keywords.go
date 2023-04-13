@@ -8,7 +8,6 @@ import (
 	"300Bot/function/heros"
 	"300Bot/function/img"
 	"300Bot/function/music"
-	"300Bot/function/present"
 	"300Bot/function/wether"
 	"300Bot/send"
 	"300Bot/store"
@@ -62,13 +61,13 @@ func checkKeywords(keyword string, msgStr string, msg map[string]interface{}) bo
 	case "免费礼物", "送礼":
 		send.SendGroupPost(msg["group_id"].(float64), "暂时失效")
 		return true
-		msgArr := strings.Split(msgStr, keyword)
-		if msgArr[1] == "" || msgArr[1] == " " {
-			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
-		} else {
-			present.SendGift(msgArr[1], msg)
-		}
-		return true
+		// msgArr := strings.Split(msgStr, keyword)
+		// if msgArr[1] == "" || msgArr[1] == " " {
+		// 	send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+		// } else {
+		// 	present.SendGift(msgArr[1], msg)
+		// }
+		// return true
 	case "签到", "打卡":
 		heros.CheckIn(msg)
 		return true

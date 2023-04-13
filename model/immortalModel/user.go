@@ -97,6 +97,17 @@ func UpdateUserAura(uid int, aura int) error {
 	// if result.Error != nil {
 	return result.Error
 }
+func UpdateUserIntelligence(uid int, intelligence int, mode int) error {
+	var update interface{}
+	if mode == 1 {
+		update = gorm.Expr("intelligence+?", intelligence)
+	} else {
+		update = intelligence
+	}
+	result := db.Table("user").Where("id=?", uid).Update("intelligence", update)
+	// if result.Error != nil {
+	return result.Error
+}
 func UpdateUserLevel(uid int, level int) error {
 	result := db.Table("user_cultivate").Where("uid=?", uid).Update("level", level)
 	// if result.Error != nil {

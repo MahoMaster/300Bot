@@ -14,6 +14,8 @@ type config struct {
 	Port string `json:"port"`
 	//调用发送等api的端口
 	ApiPort string `json:"apiPort"`
+
+	Host string `json:"host"`
 	//机器人qq号
 	BotQQ   string `json:"botQQ"`
 	BotName string `json:"botName"`

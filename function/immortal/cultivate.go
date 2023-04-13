@@ -31,6 +31,8 @@ func Break(qq string, msg map[string]interface{}) error {
 		level2Up(u, uc, level, msg)
 	case 3:
 		level3Up(u, uc, level, msg)
+	case 4:
+		level4Up(u, uc, level, msg)
 	default:
 		return errors.New("天地之间仿佛少了一些能够突破的规则，速速催促管理员写吧")
 	}
@@ -113,7 +115,7 @@ func Cultivate(qq string, use int, sid int, msg map[string]interface{}) error {
 	for _, moneyOne := range conf.Config.MoneyList {
 		if moneyOne == qq {
 			// log.Println(needTime)
-			if needTime > 0 {
+			if needTime > 0 && caa.Left_time >= needTime {
 				timer, ok := logMoneyCultivate[qq]
 				if ok {
 					if timer != nil {
@@ -121,6 +123,7 @@ func Cultivate(qq string, use int, sid int, msg map[string]interface{}) error {
 					}
 
 				}
+
 				timer = time.AfterFunc(time.Second*time.Duration(needTime), func() {
 					send.SendGroupPost(msg["group_id"].(float64), "[CQ:at,qq="+qq+"] 你的修炼已经ok啦！")
 					logMoneyCultivate[qq] = nil
