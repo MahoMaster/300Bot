@@ -66,6 +66,18 @@ func CheckKeywords(msgStr string, msg map[string]interface{}) bool {
 			return true
 		}
 		return true
+	case "盗窃", "偷窃", "抢夺", "打劫":
+		if len(msgArr) < 2 {
+			send.SendGroupPost(msg["group_id"].(float64), `参数错误`)
+			return true
+		}
+		aim := msgArr[1]
+		err := Steal(qq, aim, msg)
+		if err != nil {
+			send.SendGroupPost(msg["group_id"].(float64), err.Error())
+			return true
+		}
+		return true
 	case "系统功法商城":
 		name := ""
 		var err error
