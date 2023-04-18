@@ -219,3 +219,13 @@ func StartWebsocket() {
 	WsConnAll = make(map[int64]*wsConnection)
 	http.HandleFunc("/", wsHandler)
 }
+
+// 广播
+func BroadcastMessage(data string) {
+	log.Println(data)
+	for _, wsConn := range WsConnAll {
+		if err := wsConn.wsWrite(websocket.TextMessage, []byte(data)); err != nil {
+			log.Println("广播消息发送失败:", err)
+		}
+	}
+}

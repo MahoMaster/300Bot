@@ -52,3 +52,9 @@ type UserGPTSetting struct {
 	Last_chatgpt   string `json:"last_chatgpt"`
 	Is_ban         int    `json:"is_ban,omitempty"`
 }
+
+type QQFriend struct {
+	User_id  float64 `json:"user_id"`
+	Nickname string  `json:"nickName"`
+	Remark   string  `json:"remark"`
+}

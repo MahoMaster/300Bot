@@ -5,6 +5,7 @@ import (
 	"300Bot/function/chatGPT"
 	"300Bot/model/immortalModel"
 	"300Bot/send"
+	"300Bot/store"
 	"300Bot/util"
 	"encoding/json"
 	"errors"
@@ -254,6 +255,11 @@ func level4UpResult(qq string, success int, code string, msg map[string]interfac
 	return nil
 }
 func level4Up(u immortalModel.User, uc immortalModel.User_cultivate, level immortalModel.Level, msg map[string]interface{}) error {
+
+	if !store.CheckQQFriend(u.Qq) {
+		send.SendGroupPost(msg["group_id"].(float64), `先加我为QQ好友吧!`)
+		return nil
+	}
 
 	code := SetAndSaveCodeInfo(1, u, msg)
 	send.SendPrivatePostHasGroup(msg["user_id"].(float64), msg["group_id"].(float64), `您的突破限制:

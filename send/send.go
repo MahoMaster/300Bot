@@ -89,3 +89,18 @@ func SetStarMessage(message_id float64) {
 	util.HttpPost(host+"/set_essence_msg", data)
 	// log.Println(string(res))
 }
+
+func SendQuickOperation(data interface{}, msg map[string]interface{}) {
+	res := make(map[string]interface{})
+	res["context"] = msg
+	res["operation"] = data
+
+	util.HttpPost(host+"/.handle_quick_operation", res)
+	// log.Println(string(res))
+}
+
+func GetQQFriendList() []byte {
+
+	res := util.HttpPost(host+"/get_friend_list", nil)
+	return res
+}
