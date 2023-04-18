@@ -80,12 +80,27 @@ func Steal(qq string, aimString string, msg map[string]interface{}) error {
 	//首先50%概率被发现
 	random := util.RandInt(1, 100)
 	uc, _, _, err := immortalModel.GetUserCultivateById(u.Id)
+	if err != nil {
+		return err
+	}
 	ac, _, _, err := immortalModel.GetUserCultivateById(aim.Id)
+	if err != nil {
+		return err
+	}
 	random += (ac.Level - uc.Level) * 10   //修为差距
 	random += (aim.Spirit - u.Spirit) * 10 //神识差距
 
 	if random > 50 { //被发现
 		send.SendGroupPost(msg["group_id"].(float64), u.Name+"被当场抓住，啥也没得到，还被打了一顿")
+
+		last := int(math.Floor(float64(uc.Aura) * 0.01))
+		if last != 0 {
+			immortalModel.UpdateUserStone(aim.Id, last)
+			immortalModel.UpdateUserStone(u.Id, -1*last)
+		}
+
+		send.SendGroupPost(msg["group_id"].(float64), u.Name+"掉落了"+Number2String(last)+"颗灵石，"+aim.Name+"捡起灵石，轻蔑一笑")
+
 	} else {
 		send.SendGroupPost(msg["group_id"].(float64), aim.Name+"完全没发现，"+u.Name+"就快得手了！")
 
