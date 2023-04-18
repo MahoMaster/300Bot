@@ -92,8 +92,7 @@ func Steal(qq string, aimString string, msg map[string]interface{}) error {
 
 	if random > 50 { //被发现
 		send.SendGroupPost(msg["group_id"].(float64), u.Name+"被当场抓住，啥也没得到，还被打了一顿")
-
-		last := int(math.Floor(float64(uc.Aura) * 0.01))
+		last := int(math.Floor(float64(uc.Stone) * 0.01))
 		if last != 0 {
 			immortalModel.UpdateUserStone(aim.Id, last)
 			immortalModel.UpdateUserStone(u.Id, -1*last)
@@ -106,7 +105,7 @@ func Steal(qq string, aimString string, msg map[string]interface{}) error {
 
 		time.Sleep(1 * time.Second)
 
-		all := int(math.Floor(float64(ac.Aura) * 0.1))
+		all := int(math.Floor(float64(ac.Stone) * 0.1))
 		steal := util.RandInt(0, all)
 
 		steal = int(math.Floor(float64(steal) * ((float64(u.Lucky)-float64(aim.Lucky))/10 + 1)))
