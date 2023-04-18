@@ -21,7 +21,7 @@ func SetAndSaveCodeInfo(mode int, info interface{}, msg map[string]interface{}) 
 		var tmp = make(map[string]interface{})
 		tmp["qq"] = info.(immortalModel.User).Qq
 		tmp["name"] = info.(immortalModel.User).Name
-		tmp["need_rank"] = 10
+		tmp["need_rank"] = 18
 		tmp["msg"] = msg
 		tmpB, _ := json.Marshal(tmp)
 		immortalModel.SetRedis(keyU+code, string(tmpB), 1800)
@@ -213,7 +213,9 @@ func level4UpResult(qq string, success int, code string, msg map[string]interfac
 	if err != nil {
 		return err
 	}
-
+	if level.Id != 4 {
+		return errors.New("想干嘛！")
+	}
 	if uc.Aura < level.Up_need_aura {
 		return errors.New("少年还需多加修炼")
 	}

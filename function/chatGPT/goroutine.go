@@ -24,6 +24,7 @@ func (g *Glimit) goroutineRun(f func()) {
 	g.c <- struct{}{}
 	go func() {
 		f()
+		wg.Done()
 		<-g.c
 	}()
 	wg.Add(1)
