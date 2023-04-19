@@ -155,7 +155,26 @@ func BuySkill(uid int, price int, sid int) error {
 	return err
 
 }
+func BuyEquip(uid int, price int, eid int) error {
+	err := db.Transaction(func(tx *gorm.DB) error {
 
+		if err := tx.Table("user_cultivate").Where("uid=?", uid).Update("stone", gorm.Expr("stone-?", price)).Error; err != nil {
+			return err
+		}
+		var ue = User_equip{
+			Uid:         uid,
+			Eid:         eid,
+			Is_equip:    0,
+			Create_time: int(time.Now().Unix()),
+		}
+		if err := tx.Table("user_equip").Create(&ue).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+	return err
+
+}
 func GetUserSkillOne(uid int, sid int, hasDetail int) (User_skill, error) {
 	var us User_skill
 
@@ -173,6 +192,25 @@ func GetUserSkillOne(uid int, sid int, hasDetail int) (User_skill, error) {
 	}
 
 	return us, nil
+}
+
+func GetUserEquipOne(uid int, eid int, hasDetail int) (User_equip, error) {
+	var ue User_equip
+
+	r := db.Table("user_equip").Where("uid = ? and eid = ?", uid, eid).First(&ue)
+	if r.RowsAffected == 0 {
+		return ue, errors.New("未拥有该装备")
+	}
+
+	if hasDetail != 0 {
+		equip, err := GetEquipDetail(eid, 1)
+		if err != nil {
+			return ue, err
+		}
+		ue.Equip = equip
+	}
+
+	return ue, nil
 }
 
 func GetUserSkillList(uid int, page int, is_equip int) ([]User_skill, error) {
@@ -236,4 +274,9 @@ func SetUserSkillEquip(us User_skill, u User) error {
 	})
 
 	return err
+}
+
+func DelUserSkill(uid int, sid int) error {
+	r := db.Table("user_skill").Where("uid = ? and sid = ?", uid, sid).Delete(User_skill{})
+	return r.Error
 }

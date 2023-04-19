@@ -105,12 +105,31 @@ type Skill_entry struct {
 	Content string  `json:"content"`               //词条文本
 }
 
+type Equip struct {
+	Id    int           `gorm:"primary_key" json:"id"` //
+	Name  string        `json:"name"`                  //
+	Level int           `json:"level"`                 //等级
+	Root  int           `json:"root"`                  //五行
+	Intro string        `json:"intro"`                 //描述
+	Entry []Equip_entry `json:"entry" gorm:"-"`        //词条
+	Type  int           `json:"type"`                  //1为丹炉
+}
+
+type Equip_entry struct {
+	Id      int     `gorm:"primary_key" json:"id"` //
+	Eid     int     `json:"eid"`                   //
+	Type    int     `json:"type"`                  //1为修炼类，2为真属性类，3为假属性类，4为伤害类
+	Aim     string  `json:"aim"`                   //影响的值，例如aura,insight,hp,damage等
+	Val     float64 `json:"val"`                   //具体影响数值
+	Content string  `json:"content"`               //词条文本
+}
 type Shop_admin struct {
 	Id    int   `gorm:"primary_key" json:"id"` //
 	Gid   int   `json:"gid"`                   //对应表得id
 	Type  int   `json:"type"`                  //1为功法技能，2为装备，3为材料
 	Price int   `json:"price"`                 //价格
 	Skill Skill `json:"skill" gorm:"-"`        //查出来得技能信息
+	Equip Equip `json:"equip" gorm:"-"`        //查出来得装备信息
 }
 
 type User_skill struct {
@@ -119,4 +138,12 @@ type User_skill struct {
 	Is_equip    int   `json:"is_equip"`               //是否装备
 	Create_time int   `json:"create_time"`            //
 	Skill       Skill `json:"skill" gorm:"-"`         //查出来得技能信息
+}
+
+type User_equip struct {
+	Uid         int   `gorm:"primary_key" json:"uid"` //
+	Eid         int   `json:"eid"`                    //装备id
+	Is_equip    int   `json:"is_equip"`               //是否装备
+	Create_time int   `json:"create_time"`            //
+	Equip       Equip `json:"equip" gorm:"-"`         //查出来得装备信息
 }

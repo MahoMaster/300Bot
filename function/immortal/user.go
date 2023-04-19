@@ -332,3 +332,25 @@ func EquipSkill(qq string, sid int, status int, msg map[string]interface{}) erro
 	send.SendGroupPost(msg["group_id"].(float64), "设置成功")
 	return nil
 }
+
+func GiveUpSkill(qq string, sid int, msg map[string]interface{}) error {
+	u, err := immortalModel.GetUserInfoByQQ(qq)
+	if err != nil {
+		return err
+	}
+	us, _ := immortalModel.GetUserSkillOne(u.Id, sid, 0)
+	if us.Sid == 0 {
+		return errors.New("你都没学你遗忘个锤子")
+	}
+
+	if us.Is_equip == 1 {
+		return errors.New("请先卸下功法")
+	}
+
+	err = immortalModel.DelUserSkill(u.Id, us.Sid)
+	if err != nil {
+		return err
+	}
+	send.SendGroupPost(msg["group_id"].(float64), "遗忘成功")
+	return nil
+}

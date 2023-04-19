@@ -78,7 +78,7 @@ func CheckKeywords(msgStr string, msg map[string]interface{}) bool {
 			return true
 		}
 		return true
-	case "系统功法商城":
+	case "万法屋":
 		name := ""
 		var err error
 		if len(msgArr) >= 3 {
@@ -98,6 +98,26 @@ func CheckKeywords(msgStr string, msg map[string]interface{}) bool {
 			return true
 		}
 		return true
+	case "光器馆":
+		name := ""
+		var err error
+		if len(msgArr) >= 3 {
+			name = msgArr[2]
+		}
+		page := 1
+		if len(msgArr) >= 2 {
+			page, err = strconv.Atoi(msgArr[1])
+			if err != nil {
+				send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+				return true
+			}
+		}
+		err = GetEquipAdminShop(qq, msg, name, page)
+		if err != nil {
+			send.SendGroupPost(msg["group_id"].(float64), err.Error())
+			return true
+		}
+		return true
 	case "查询功法":
 		if len(msgArr) < 2 {
 
@@ -110,6 +130,18 @@ func CheckKeywords(msgStr string, msg map[string]interface{}) bool {
 			return true
 		}
 		return true
+	case "查询装备":
+		if len(msgArr) < 2 {
+
+			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+			return true
+		}
+		err := GetEquipDetail(msgArr[1], msg)
+		if err != nil {
+			send.SendGroupPost(msg["group_id"].(float64), err.Error())
+			return true
+		}
+		return true
 	case "购买功法":
 		if len(msgArr) < 2 {
 
@@ -117,6 +149,18 @@ func CheckKeywords(msgStr string, msg map[string]interface{}) bool {
 			return true
 		}
 		err := BuySkill(qq, msgArr[1], msg)
+		if err != nil {
+			send.SendGroupPost(msg["group_id"].(float64), err.Error())
+			return true
+		}
+		return true
+	case "购买装备":
+		if len(msgArr) < 2 {
+
+			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+			return true
+		}
+		err := BuyEquip(qq, msgArr[1], msg)
 		if err != nil {
 			send.SendGroupPost(msg["group_id"].(float64), err.Error())
 			return true
@@ -173,6 +217,22 @@ func CheckKeywords(msgStr string, msg map[string]interface{}) bool {
 			return true
 		}
 		err = EquipSkill(qq, sid, 0, msg)
+		if err != nil {
+			send.SendGroupPost(msg["group_id"].(float64), err.Error())
+			return true
+		}
+		return true
+	case "遗忘功法":
+		if len(msgArr) < 2 {
+			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+			return false
+		}
+		sid, err := strconv.Atoi(msgArr[1])
+		if err != nil {
+			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+			return true
+		}
+		err = GiveUpSkill(qq, sid, msg)
 		if err != nil {
 			send.SendGroupPost(msg["group_id"].(float64), err.Error())
 			return true

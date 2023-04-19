@@ -13,6 +13,9 @@ func GetAdminShop(typeInt int, name string, page int) ([]Shop_admin, error) {
 	if typeInt == 1 {
 		tableName = "skill"
 	}
+	if typeInt == 3 {
+		tableName = "equip"
+	}
 	limit := 6
 	start := (page - 1) * limit
 	r := db.Table("shop_admin").Select("shop_admin.*").Joins("left join "+tableName+" on skill.id=shop_admin.gid").Where("shop_admin.type = ? and skill.name like ? limit ?,?", typeInt, "%"+name+"%", start, limit).Find(&sa)
@@ -32,6 +35,14 @@ func GetAdminShop(typeInt int, name string, page int) ([]Shop_admin, error) {
 				return sa, err
 			}
 			sa[index].Skill = skill
+		}
+
+		if item.Type == 3 {
+			equip, err := GetEquipDetail(item.Gid, 0)
+			if err != nil {
+				return sa, err
+			}
+			sa[index].Equip = equip
 		}
 	}
 	return sa, nil
@@ -54,6 +65,13 @@ func GetAdminShopOne(typeInt int, gid int, hasDetail int) (Shop_admin, error) {
 				return sa, err
 			}
 			sa.Skill = skill
+		}
+		if sa.Type == 3 {
+			equip, err := GetEquipDetail(sa.Gid, 0)
+			if err != nil {
+				return sa, err
+			}
+			sa.Equip = equip
 		}
 	}
 	return sa, nil

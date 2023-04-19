@@ -98,6 +98,16 @@ func Type2SkillTypeName(typeInt int) string {
 		return "功法"
 	}
 }
+
+func Type2EquipTypeName(typeInt int) string {
+	switch typeInt {
+	case 1:
+		return "丹炉"
+	default:
+		return "装备"
+	}
+}
+
 func Number2String(num interface{}) string {
 	if number, ok := num.(int); ok {
 		return strconv.Itoa(number)
