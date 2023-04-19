@@ -310,7 +310,7 @@ func level5UpResult(qq string, success int, code string, msg map[string]interfac
 		insightAdd := 2
 		// intelligenceAdd := 1
 		u.Insight = u.Insight + insightAdd
-		immortalModel.UpdateUserInsight(u.Id, insightAdd, 2)
+		immortalModel.UpdateUserInsight(u.Id, insightAdd, 1)
 		send.SendGroupPost(msg["group_id"].(float64), u.Name+`悟性+`+Number2String(insightAdd))
 		chatGPT.LevelUpResultStory(u.Name, level.Name, next_level.Name, u.Qq, 1, "+2", msg)
 	} else {

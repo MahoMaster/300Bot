@@ -95,6 +95,9 @@ func Cultivate(qq string, use int, sid int, msg map[string]interface{}) error {
 		speedUp = `体质加成:` + Number2String((u.Constitution-10)*10) + `%`
 	}
 
+	speed = float64(speed * (1 + float64(uc.Level-1)*0.1)) //修为加成
+	speedUp = speedUp + `
+修为加成:` + Number2String(float64(uc.Level-1)*10) + `%`
 	speed = speed / 60
 
 	if caa.Left_time == 0 { //新建
@@ -139,7 +142,7 @@ func Cultivate(qq string, use int, sid int, msg map[string]interface{}) error {
 
 	template := `增加修炼时间` + Number2String(oneUse2Min*use) + `分钟,
 ` + speedUp + `,
-修炼速度:` + fmt.Sprintf("%.2f", speed) + `灵力/秒,`
+修炼速度:` + fmt.Sprintf("%.2f", speed*60) + `灵力/分钟,`
 
 	send.SendGroupPost(msg["group_id"].(float64), template)
 
