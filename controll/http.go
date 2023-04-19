@@ -4,6 +4,7 @@ import (
 	"300Bot/function/immortal"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 )
 
@@ -44,6 +45,7 @@ func LumaReport(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	code := r.FormValue("code")
 	progress := r.FormValue("progress")
+	log.Println(progress)
 	mode := r.FormValue("mode")
 	var res = make(map[string]interface{})
 	res["code"] = 0

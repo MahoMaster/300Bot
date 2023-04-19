@@ -18,11 +18,15 @@ const keyU = "LumaImmortalUser2Code-"
 
 func SetAndSaveCodeInfo(mode int, info interface{}, msg map[string]interface{}) string {
 	code := util.RandStr(8)
-	if mode == 1 {
+	if mode == 1 || mode == 2 {
 		var tmp = make(map[string]interface{})
 		tmp["qq"] = info.(immortalModel.User).Qq
 		tmp["name"] = info.(immortalModel.User).Name
-		tmp["need_rank"] = 18
+		if mode == 1 {
+			tmp["need_rank"] = 18
+		} else {
+			tmp["need_rank"] = 210
+		}
 		tmp["msg"] = msg
 		tmpB, _ := json.Marshal(tmp)
 		immortalModel.SetRedis(keyU+code, string(tmpB), 1800)
@@ -48,7 +52,7 @@ var logBreakTimer = make(map[string]*time.Timer)
 
 func BreakReport(code string, progress string, mode string) error {
 
-	if mode == "1" {
+	if mode == "1" || mode == "2" {
 		info, err := Code2Info(code)
 		if err != nil {
 			return err
@@ -65,10 +69,19 @@ func BreakReport(code string, progress string, mode string) error {
 			send.SendGroupPost(msg["group_id"].(float64), name+`突破已突破`+progress+"%")
 		}
 		if progress == "100" {
-			level4UpResult(qq, 1, code, msg)
+			if mode == "1" {
+				level4UpResult(qq, 1, code, msg)
+			} else {
+				level5UpResult(qq, 1, code, msg)
+			}
+
 		}
 		if progress == "0" {
-			level4UpResult(qq, 0, code, msg)
+			if mode == "1" {
+				level4UpResult(qq, 0, code, msg)
+			} else {
+				level5UpResult(qq, 0, code, msg)
+			}
 		}
 
 	}
@@ -266,44 +279,71 @@ func level4Up(u immortalModel.User, uc immortalModel.User_cultivate, level immor
 http://`+conf.Config.Host+`/static/elsfk/index.html?code=`+code)
 
 	send.SendGroupPost(msg["group_id"].(float64), `已经偷偷把突破条件发给你了，快去突破吧！`)
-	// random := util.RandInt(1, 100)
 
-	// randomUp := float64(random * (1 + (u.Lucky-10)/10 + (u.Insight-10)/10))
+	return nil
+}
+func level5UpResult(qq string, success int, code string, msg map[string]interface{}) error {
+	u, err := immortalModel.GetUserInfoByQQ(qq)
+	if err != nil {
+		return err
+	}
+	uc, level, _, err := immortalModel.GetUserCultivateById(u.Id)
+	if err != nil {
+		return err
+	}
+	if level.Id != 5 {
+		return errors.New("想干嘛！")
+	}
+	if uc.Aura < level.Up_need_aura {
+		return errors.New("少年还需多加修炼")
+	}
+	next_level, err := immortalModel.GetLevel(level.Next_level)
+	if err != nil {
+		return err
+	}
+	immortalModel.DelRedis(keyU + code)
+	if success == 1 {
+		send.SendGroupPost(msg["group_id"].(float64), u.Name+`突破成功`)
+		uc.Level = next_level.Id
+		immortalModel.UpdateUserLevel(u.Id, uc.Level)
+		//悟性+2
+		insightAdd := 2
+		// intelligenceAdd := 1
+		u.Insight = u.Insight + insightAdd
+		immortalModel.UpdateUserInsight(u.Id, insightAdd, 2)
+		send.SendGroupPost(msg["group_id"].(float64), u.Name+`悟性+`+Number2String(insightAdd))
+		chatGPT.LevelUpResultStory(u.Name, level.Name, next_level.Name, u.Qq, 1, "+2", msg)
+	} else {
+		send.SendGroupPost(msg["group_id"].(float64), u.Name+`突破失败,修为跌落`)
+		randomLast := util.RandInt(int(math.Floor(float64(uc.Aura/2))), uc.Aura)
+		// log.Println(randomLast)
+		randomLast = int(math.Floor(float64(randomLast * (1 + (u.Lucky-10)/10))))
+		// log.Println(randomLast)
+		if randomLast > level.Up_need_aura {
+			randomLast = level.Up_need_aura
+		}
+		send.SendGroupPost(msg["group_id"].(float64), `损失灵力`+Number2String(uc.Aura-randomLast))
+		// log.Println(randomLast)
+		// uc.Aura = randomLast
+		immortalModel.UpdateUserAura(u.Id, randomLast-uc.Aura)
 
-	// next_level, err := immortalModel.GetLevel(level.Next_level)
-	// if err != nil {
-	// 	return err
-	// }
-	// send.SendGroupPost(msg["group_id"].(float64), u.Name+`将开始突破到`+next_level.Name)
-	// go func() {
-	// 	// chatGPT.LevelUpBeforeStory(u.Name, level.Name, next_level.Name, u.Qq, msg)
-	// 	time.Sleep(2 * time.Second)
-	// 	// chatGPT.LevelUpIngStory(u.Name, level.Name, next_level.Name, u.Qq, msg)
-	// 	time.Sleep(2 * time.Second)
-	// 	if randomUp > 95 {
-	// 		send.SendGroupPost(msg["group_id"].(float64), u.Name+`突破成功`)
-	// 		uc.Level = next_level.Id
-	// 		immortalModel.UpdateUserLevel(u.Id, uc.Level)
+		chatGPT.LevelUpResultStory(u.Name, level.Name, next_level.Name, u.Qq, 0, `损失灵力`+Number2String(uc.Aura-randomLast), msg)
+	}
 
-	// 		chatGPT.LevelUpResultStory(u.Name, level.Name, next_level.Name, u.Qq, 1, msg)
-	// 	} else {
-	// 		send.SendGroupPost(msg["group_id"].(float64), u.Name+`突破失败,修为跌落`)
-	// 		randomLast := util.RandInt(int(math.Floor(float64(uc.Aura/2))), uc.Aura)
-	// 		// log.Println(randomLast)
-	// 		randomLast = int(math.Floor(float64(randomLast * (1 + (u.Lucky-10)/10))))
-	// 		// log.Println(randomLast)
-	// 		if randomLast > level.Up_need_aura {
-	// 			randomLast = level.Up_need_aura
-	// 		}
-	// 		send.SendGroupPost(msg["group_id"].(float64), `损失灵力`+Number2String(uc.Aura-randomLast))
-	// 		// log.Println(randomLast)
-	// 		// uc.Aura = randomLast
-	// 		immortalModel.UpdateUserAura(u.Id, randomLast-uc.Aura)
+	return nil
+}
+func level5Up(u immortalModel.User, uc immortalModel.User_cultivate, level immortalModel.Level, msg map[string]interface{}) error {
 
-	// 		chatGPT.LevelUpResultStory(u.Name, level.Name, next_level.Name, u.Qq, 0, msg)
-	// 	}
+	if !store.CheckQQFriend(u.Qq) {
+		send.SendGroupPost(msg["group_id"].(float64), `先加我为QQ好友吧!`)
+		return nil
+	}
 
-	// }()
+	code := SetAndSaveCodeInfo(2, u, msg)
+	send.SendPrivatePostHasGroup(msg["user_id"].(float64), msg["group_id"].(float64), `您的突破限制:
+http://`+conf.Config.Host+`/static/hby/dist/index.html?code=`+code)
+
+	send.SendGroupPost(msg["group_id"].(float64), `已经偷偷把突破条件发给你了，快去突破吧！`)
 
 	return nil
 }

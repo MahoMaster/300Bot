@@ -108,6 +108,28 @@ func UpdateUserIntelligence(uid int, intelligence int, mode int) error {
 	// if result.Error != nil {
 	return result.Error
 }
+func UpdateUserSpirit(uid int, spirit int, mode int) error {
+	var update interface{}
+	if mode == 1 {
+		update = gorm.Expr("spirit+?", spirit)
+	} else {
+		update = spirit
+	}
+	result := db.Table("user").Where("id=?", uid).Update("spirit", update)
+	// if result.Error != nil {
+	return result.Error
+}
+func UpdateUserInsight(uid int, insight int, mode int) error {
+	var update interface{}
+	if mode == 1 {
+		update = gorm.Expr("insight+?", insight)
+	} else {
+		update = insight
+	}
+	result := db.Table("user").Where("id=?", uid).Update("insight", update)
+	// if result.Error != nil {
+	return result.Error
+}
 func UpdateUserLevel(uid int, level int) error {
 	result := db.Table("user_cultivate").Where("uid=?", uid).Update("level", level)
 	// if result.Error != nil {
@@ -139,7 +161,7 @@ func GetUserSkillOne(uid int, sid int, hasDetail int) (User_skill, error) {
 
 	r := db.Table("user_skill").Where("uid = ? and sid = ?", uid, sid).First(&us)
 	if r.RowsAffected == 0 {
-		return us, errors.New("不存在")
+		return us, errors.New("未拥有该功法")
 	}
 
 	if hasDetail != 0 {

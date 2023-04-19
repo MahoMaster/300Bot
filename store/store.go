@@ -4,7 +4,7 @@ import (
 	"300Bot/model"
 	"300Bot/send"
 	"encoding/json"
-	"fmt"
+	"strconv"
 )
 
 var GroupList []model.Group
@@ -37,7 +37,7 @@ func GetQQFriendList() {
 
 func CheckQQFriend(qq string) bool {
 	for _, f := range QQFriendList {
-		if fmt.Sprintf("%f", f.User_id) == qq {
+		if strconv.FormatFloat(f.User_id, 'f', -1, 64) == qq {
 			return true
 		}
 	}
