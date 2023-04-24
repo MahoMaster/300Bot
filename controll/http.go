@@ -17,6 +17,8 @@ func LumaCode2Info(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	code := r.FormValue("code")
 	mode := r.FormValue("mode")
+	// log.Println(code)
+	// log.Println(mode)
 	var res = make(map[string]interface{})
 	res["code"] = 0
 	info, err := immortal.Code2Info(code)
@@ -25,7 +27,7 @@ func LumaCode2Info(w http.ResponseWriter, r *http.Request) {
 		res["code"] = 1
 		res["data"] = nil
 	} else {
-		if mode == "1" {
+		if mode == "1" || mode == "2" || mode == "3" {
 			var infoMap = make(map[string]interface{})
 			err = json.Unmarshal([]byte(info), &infoMap)
 			if err != nil {

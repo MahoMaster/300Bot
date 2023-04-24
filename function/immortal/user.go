@@ -177,7 +177,7 @@ func CreateUser(qq string, name string, msg map[string]interface{}) (immortalMod
 
 	random2 := util.RandInt(0, 100)
 
-	if random2 < 5 { //修仙世家 悟性+5，初始等级+1
+	if random2 < 3 { //修仙世家 悟性+5，初始等级+1
 		story = append(story, "修仙世家")
 		uc.Level = 2
 		user.Insight = user.Insight + 5

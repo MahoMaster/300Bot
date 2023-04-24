@@ -35,6 +35,9 @@ func Break(qq string, msg map[string]interface{}) error {
 		level4Up(u, uc, level, msg)
 	case 5:
 		level5Up(u, uc, level, msg)
+	case 6:
+		// return errors.New("天地之间仿佛少了一些能够突破的规则，速速催促管理员写吧")
+		level6Up(u, uc, level, msg)
 	default:
 		return errors.New("天地之间仿佛少了一些能够突破的规则，速速催促管理员写吧")
 	}

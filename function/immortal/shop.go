@@ -32,10 +32,10 @@ func GetEquipAdminShop(qq string, msg map[string]interface{}, name string, page 
 ------------------------------`
 	for _, item := range mods {
 		template = template + `
-	物品` + Number2String(item.Gid) + `:` + item.Skill.Name + `,
+	物品` + Number2String(item.Gid) + `:` + item.Equip.Name + `,
 	类型:` + Type2EquipTypeName(item.Equip.Type) + `,
 	价格:` + Number2String(item.Price) + `灵石,
-	` + item.Skill.Intro + `
+	` + item.Equip.Intro + `
 ------------------------------`
 	}
 	send.SendGroupPost(msg["group_id"].(float64), template)

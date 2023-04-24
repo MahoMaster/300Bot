@@ -18,7 +18,7 @@ func GetAdminShop(typeInt int, name string, page int) ([]Shop_admin, error) {
 	}
 	limit := 6
 	start := (page - 1) * limit
-	r := db.Table("shop_admin").Select("shop_admin.*").Joins("left join "+tableName+" on skill.id=shop_admin.gid").Where("shop_admin.type = ? and skill.name like ? limit ?,?", typeInt, "%"+name+"%", start, limit).Find(&sa)
+	r := db.Table("shop_admin").Select("shop_admin.*").Joins("left join "+tableName+" as g on g.id=shop_admin.gid").Where("shop_admin.type = ? and g.name like ? limit ?,?", typeInt, "%"+name+"%", start, limit).Find(&sa)
 	if r.RowsAffected == 0 {
 		return sa, errors.New("没咯")
 	}

@@ -87,8 +87,8 @@ func Steal(qq string, aimString string, msg map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
-	random += (ac.Level - uc.Level) * 10   //修为差距
-	random += (aim.Spirit - u.Spirit) * 10 //神识差距
+	random = int(math.Floor(float64(random * (1 + ((ac.Level - uc.Level) * 10 / 100)))))   //修为差距
+	random = int(math.Floor(float64(random * (1 + ((aim.Spirit - u.Spirit) * 10 / 100))))) //神识差距
 
 	if random > 50 { //被发现
 		send.SendGroupPost(msg["group_id"].(float64), u.Name+"被当场抓住，啥也没得到，还被打了一顿")
