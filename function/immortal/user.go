@@ -302,6 +302,35 @@ func GetUserSkillList(qq string, page int, is_equip int, msg map[string]interfac
 	return nil
 }
 
+func GetUserEquipList(qq string, page int, is_equip int, msg map[string]interface{}) error {
+	u, err := immortalModel.GetUserInfoByQQ(qq)
+	if err != nil {
+		return err
+	}
+	us, err := immortalModel.GetUserEquipList(u.Id, page, is_equip)
+	if err != nil {
+		return err
+	}
+	template := u.Name + `的装备:
+------------------------------`
+	for _, item := range us {
+		template = template + `
+	装备` + Number2String(item.Eid) + `:` + item.Equip.Name
+
+		if item.Is_equip == 1 {
+			template = template + `【已配置】`
+		}
+
+		template = template + `,
+	` + item.Equip.Intro + `
+------------------------------`
+	}
+
+	send.SendGroupPost(msg["group_id"].(float64), template)
+
+	return nil
+}
+
 func EquipSkill(qq string, sid int, status int, msg map[string]interface{}) error {
 	u, err := immortalModel.GetUserInfoByQQ(qq)
 	if err != nil {
@@ -325,6 +354,36 @@ func EquipSkill(qq string, sid int, status int, msg map[string]interface{}) erro
 		}
 
 		err := immortalModel.SetUserSkillEquip(us, u)
+		if err != nil {
+			return err
+		}
+	}
+	send.SendGroupPost(msg["group_id"].(float64), "设置成功")
+	return nil
+}
+func EquipEquip(qq string, eid int, status int, msg map[string]interface{}) error {
+	u, err := immortalModel.GetUserInfoByQQ(qq)
+	if err != nil {
+		return err
+	}
+	ue, _ := immortalModel.GetUserEquipOne(u.Id, eid, 1)
+	if ue.Eid == 0 {
+		return errors.New("你都没有你装备个锤子")
+	}
+
+	if ue.Is_equip != status {
+		ue.Is_equip = status
+		if status == 1 {
+			ec, err := immortalModel.GetUserEquipEquipType(u.Id, ue.Equip.Type)
+			if err != nil {
+				return err
+			}
+			if ec >= 1 {
+				return errors.New("已装备同类装备，请卸下后再装备")
+			}
+		}
+
+		err := immortalModel.SetUserEquipEquip(ue, u)
 		if err != nil {
 			return err
 		}

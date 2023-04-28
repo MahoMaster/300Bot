@@ -241,6 +241,34 @@ func GetUserSkillList(uid int, page int, is_equip int) ([]User_skill, error) {
 	return us, nil
 }
 
+func GetUserEquipList(uid int, page int, is_equip int) ([]User_equip, error) {
+	limit := 6
+	start := (page - 1) * limit
+	var ue = make([]User_equip, 0)
+
+	is_equipFilter := -1
+	if is_equip == 0 {
+		is_equipFilter = 1
+	}
+	if is_equip == 1 {
+		is_equipFilter = 0
+	}
+	r := db.Table("user_equip").Where("uid = ? and is_equip!=?  limit ?,?", uid, is_equipFilter, start, limit).Find(&ue)
+	if r.RowsAffected == 0 {
+		return ue, errors.New("啥玩意儿啊，没有啊")
+	}
+	for index, item := range ue {
+
+		equip, err := GetEquipDetail(item.Eid, 0)
+		if err != nil {
+			return ue, err
+		}
+		ue[index].Equip = equip
+
+	}
+	return ue, nil
+}
+
 func GetUserSkillEquipCount(uid int) (int64, error) {
 	var count int64
 	r := db.Table("user_skill").Where("uid = ? and is_equip!=?  ", uid, 1).Count(&count)
@@ -275,7 +303,40 @@ func SetUserSkillEquip(us User_skill, u User) error {
 
 	return err
 }
+func SetUserEquipEquip(ue User_equip, u User) error {
 
+	err := db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Table("user_equip").Where("uid=? and eid=?", ue.Uid, ue.Eid).Update("is_equip", ue.Is_equip).Error; err != nil {
+			return err
+		}
+		reviseFlag := false
+		for _, entry := range ue.Equip.Entry {
+			if entry.Type == 2 {
+				val := entry.Val
+				if ue.Is_equip == 0 {
+					val = -1 * val
+				}
+				u.SetValue(entry.Aim, u.GetValue(entry.Aim)+val)
+				reviseFlag = true
+			}
+		}
+		if reviseFlag {
+			if err := tx.Table("user").Where("id=?", u.Id).Save(&u).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	return err
+}
+
+func GetUserEquipEquipType(uid int, equip_type int) (int64, error) {
+	var count int64
+	r := db.Table("user_equip as ue").Select("count(1)").Joins("left join equip as e on e.id=ue.eid").Where("uid = ? and is_equip=1 and e.type=?", uid, equip_type).Count(&count)
+	return count, r.Error
+}
 func DelUserSkill(uid int, sid int) error {
 	r := db.Table("user_skill").Where("uid = ? and sid = ?", uid, sid).Delete(User_skill{})
 	return r.Error
