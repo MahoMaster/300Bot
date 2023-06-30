@@ -6,7 +6,6 @@ import (
 	"300Bot/function/emotion"
 	"300Bot/function/immortal"
 	"300Bot/function/repeat"
-	"300Bot/send"
 	"300Bot/store"
 	"log"
 	"strconv"
@@ -36,7 +35,8 @@ func private(msg map[string]interface{}) {
 	// send.SendPrivate(msg["user_id"].(float64), `[CQ:image,file=0c9df9e9aaa98350bb28c1ca2661c5e0.image]`)
 	// go func() {
 	// time.Sleep(1 * time.Second)
-	send.SendPrivate(msg["user_id"].(float64), "有什么意见建议问题可以直接发给Maho")
+	chatGPT.AddPlanPrivate(msg["raw_message"].(string), msg)
+	// send.SendPrivate(msg["user_id"].(float64), "有什么意见建议问题可以直接发给Maho")
 	// }()
 
 }

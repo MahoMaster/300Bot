@@ -110,6 +110,7 @@ func GetChatGptInfo(qq float64) UserGPTSetting {
 func LogUserUseTokens(qq float64, tokens_num int, last_id string) {
 
 	qqstr := strconv.FormatFloat(qq, 'f', -1, 64)
+	CheckRegister(qqstr)
 	_, err = db.Exec("update `user` set use_tokens=use_tokens+?,last_chatgpt=? where qq=?", tokens_num, last_id, qqstr)
 	if err != nil {
 		fmt.Println(err)

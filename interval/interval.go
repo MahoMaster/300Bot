@@ -5,9 +5,13 @@ import (
 	"300Bot/send"
 	"300Bot/store"
 	"300Bot/util"
+	"crypto/tls"
 	"encoding/json"
+	"io"
 	"log"
+	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/robfig/cron"
 )
@@ -32,9 +36,12 @@ func timeInterval() {
 	// })
 	spec1 := "0 38 9 * * *"
 	c.AddFunc(spec1, func() {
-		sayGoodMorning()
+		// sayGoodMorning()
+
+		youzanSign()
 		// sendLike()
 	})
+	// youzanSign()
 	// spec2 := "30 2 * * *"
 	// c.AddFunc(spec2, func() {
 	// 	heros.GetDailyData()
@@ -71,6 +78,54 @@ func sayGoodMorning() {
 
 func sendLike() {
 	send.SendLike("675559614", 10)
+}
+
+func youzanSign() {
+
+	defer func() {
+		if info := recover(); info != nil {
+			log.Println("芜锁胃", info)
+		}
+	}()
+
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	// 超时时间：60秒
+	client := &http.Client{Timeout: 60 * time.Second, Transport: transport}
+
+	url := "https://h5.youzan.com/wscump/checkin/checkinV2.json?checkinId=2986433&app_id=wxce54ee7f76ebd245&kdt_id=116110226&access_token=1c651fef49eb280f88670d884c1621"
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		// panic(err)
+		log.Println(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Extra-Data", `{"is_weapp":1,"sid":"YZ1123980284183408640YZ6HIc8ru2","version":"3.98.6","client":"weapp","bizEnv":"retail","uuid":"qWRjuRXwjs4iS0y1679028044231","ftime":1679028044226}`)
+	req.Header.Set("Host", "h5.youzan.com")
+	req.Header.Set("referer", "https://servicewechat.com/wxce54ee7f76ebd245/31/page-frame.html")
+	req.Header.Set("xweb_xhr", "1")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36 MicroMessenger/7.0.20.1781(0x6700143B) NetType/WIFI MiniProgramEnv/Windows WindowsWechat/WMPF XWEB/6939")
+	req.Header.Set("page-path", "pages/home/dashboard/index")
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Println(err)
+	}
+	defer resp.Body.Close()
+
+	result, _ := io.ReadAll(resp.Body)
+	log.Println(string(result))
+	var res map[string]interface{}
+	err = json.Unmarshal(result, &res)
+	if err != nil {
+		log.Println(err)
+	}
+	if res["code"].(float64) == 0 {
+		send.SendPrivate(675559614, "签到成功")
+	} else {
+		send.SendPrivate(675559614, "签到失败")
+	}
+
 }
 
 // func sendWether() {

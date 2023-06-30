@@ -30,6 +30,8 @@ type Session struct {
 var sessions = make(map[string]Session, 0)
 var gptSetting = make(map[string]model.UserGPTSetting, 0)
 
+const memory = 3000
+
 func init() {
 	initSessions()
 	config := openai.DefaultConfig(conf.Config.ChatGPTKey)
@@ -93,7 +95,7 @@ func AskForChatGPT(msg string, qq float64, session string) (openai.ChatCompletio
 		length = length + len(val.Content)
 	}
 	for {
-		if length <= 500 { //除去人设，记忆超过500，删除到500以内
+		if length <= memory { //除去人设，记忆超过容量，删除到容量以内
 			break
 		}
 		length = length - len(messages[0].Content)
@@ -118,10 +120,16 @@ func AskForChatGPT(msg string, qq float64, session string) (openai.ChatCompletio
 	fmt.Println("------------")
 
 	qqstr := strconv.FormatFloat(qq, 'f', -1, 64)
+
+	model := openai.GPT3Dot5Turbo0613
+	// if qqstr == "675559614" {
+	// 	model = openai.GPT3Dot5Turbo16K0613
+	// }
+
 	resp, err := client.CreateChatCompletion(
 		context.Background(),
 		openai.ChatCompletionRequest{
-			Model:    openai.GPT3Dot5Turbo0301,
+			Model:    model,
 			Messages: messages,
 			User:     qqstr,
 		},
@@ -300,7 +308,7 @@ func checkSession(id string) bool {
 	return true
 }
 
-func getUserGptSetting(msg map[string]interface{}) string {
+func getUserGptSetting(msg map[string]interface{}, typeInt int) string {
 	qq := strconv.FormatFloat(msg["user_id"].(float64), 'f', -1, 64)
 	gptInfo, ok := gptSetting[qq]
 	if !ok {
@@ -311,8 +319,12 @@ func getUserGptSetting(msg map[string]interface{}) string {
 	if gptInfo.Is_ban == 1 {
 		return ""
 	}
-	session := strconv.FormatFloat(msg["group_id"].(float64), 'f', -1, 64)
-	if gptInfo.Gpt_use_person == 1 { //用qq做session
+	var session string
+	if typeInt == 0 {
+		session = strconv.FormatFloat(msg["group_id"].(float64), 'f', -1, 64)
+	}
+
+	if gptInfo.Gpt_use_person == 1 || typeInt == 1 { //用qq做session
 		session = qq
 	}
 	return session
@@ -323,7 +335,7 @@ var g = goroutineNew(1)
 func AddPlan(msgStr string, msg map[string]interface{}) {
 	g.goroutineRun(func() {
 		// test()
-		session := getUserGptSetting(msg)
+		session := getUserGptSetting(msg, 0)
 		if session == "" { //被ban了
 			return
 		}
@@ -338,11 +350,28 @@ func AddPlan(msgStr string, msg map[string]interface{}) {
 		}
 	})
 }
+func AddPlanPrivate(msgStr string, msg map[string]interface{}) {
+	g.goroutineRun(func() {
+		// test()
+		session := getUserGptSetting(msg, 1)
+		if session == "" { //被ban了
+			return
+		}
+		checkSession(session)
+		res, err := AskForChatGPT(msgStr, msg["user_id"].(float64), session)
 
+		if err == nil && res.Choices[0].Message.Content != "" {
+
+			send.SendPrivatePost(msg["user_id"].(float64), strings.TrimSpace(res.Choices[0].Message.Content))
+			// send.SendTTS(msg["group_id"].(float64), strings.TrimSpace(res.Choices[0].Message.Content))
+			model.LogUserUseTokens(msg["user_id"].(float64), res.Usage.TotalTokens, res.ID)
+		}
+	})
+}
 func AddImgPlan(msgStr string, msg map[string]interface{}) {
 	g.goroutineRun(func() {
 		// test()
-		session := getUserGptSetting(msg)
+		session := getUserGptSetting(msg, 0)
 		if session == "" { //被ban了
 			return
 		}
