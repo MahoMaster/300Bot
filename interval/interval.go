@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -36,11 +37,13 @@ func timeInterval() {
 	// })
 	spec1 := "0 38 9 * * *"
 	c.AddFunc(spec1, func() {
-		// sayGoodMorning()
+		sayGoodMorning()
 
 		youzanSign()
 		// sendLike()
+		omelet()
 	})
+
 	// youzanSign()
 	// spec2 := "30 2 * * *"
 	// c.AddFunc(spec2, func() {
@@ -76,6 +79,16 @@ func sayGoodMorning() {
 	}
 }
 
+func omelet() {
+
+	for _, value := range store.GroupList {
+		name := "./static/interval/hbd.gif"
+		path, _ := filepath.Abs(name)
+		send.SendGroupPost(value.Group_id, `[CQ:image,file=file:///`+path+`]`)
+
+	}
+}
+
 func sendLike() {
 	send.SendLike("675559614", 10)
 }
@@ -93,15 +106,15 @@ func youzanSign() {
 	}
 	// 超时时间：60秒
 	client := &http.Client{Timeout: 60 * time.Second, Transport: transport}
-
-	url := "https://h5.youzan.com/wscump/checkin/checkinV2.json?checkinId=2986433&app_id=wxce54ee7f76ebd245&kdt_id=116110226&access_token=1c651fef49eb280f88670d884c1621"
+	access_token := "f35ec14e153d307f5c83eb66bcbba5"
+	url := "https://h5.youzan.com/wscump/checkin/checkinV2.json?checkinId=2986433&app_id=wxce54ee7f76ebd245&kdt_id=116110226&access_token=" + access_token
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		// panic(err)
 		log.Println(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Extra-Data", `{"is_weapp":1,"sid":"YZ1123980284183408640YZ6HIc8ru2","version":"3.98.6","client":"weapp","bizEnv":"retail","uuid":"qWRjuRXwjs4iS0y1679028044231","ftime":1679028044226}`)
+	req.Header.Set("Extra-Data", `{"is_weapp":1,"sid":"YZ1126811151545171968YZKmKNykld","version":"3.98.6","client":"weapp","bizEnv":"retail","uuid":"qWRjuRXwjs4iS0y1679028044231","ftime":1679028044226}`)
 	req.Header.Set("Host", "h5.youzan.com")
 	req.Header.Set("referer", "https://servicewechat.com/wxce54ee7f76ebd245/31/page-frame.html")
 	req.Header.Set("xweb_xhr", "1")

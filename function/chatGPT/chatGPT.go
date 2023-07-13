@@ -70,9 +70,13 @@ func initSessions() {
 
 	}
 }
+func ListModels() {
+	m, _ := client.ListModels(context.Background())
+	bt, _ := json.Marshal(m)
+	fmt.Println(string(bt))
+}
 
 func AskForChatGPT(msg string, qq float64, session string) (openai.ChatCompletionResponse, error) {
-
 	var messages = sessions[session].Messages
 	var personality = sessions[session].Personality
 
@@ -122,9 +126,9 @@ func AskForChatGPT(msg string, qq float64, session string) (openai.ChatCompletio
 	qqstr := strconv.FormatFloat(qq, 'f', -1, 64)
 
 	model := openai.GPT3Dot5Turbo0613
-	// if qqstr == "675559614" {
-	// 	model = openai.GPT3Dot5Turbo16K0613
-	// }
+	if qqstr == "675559614" {
+		model = openai.GPT3Dot5Turbo16K0613
+	}
 
 	resp, err := client.CreateChatCompletion(
 		context.Background(),
@@ -353,6 +357,8 @@ func AddPlan(msgStr string, msg map[string]interface{}) {
 func AddPlanPrivate(msgStr string, msg map[string]interface{}) {
 	g.goroutineRun(func() {
 		// test()
+		// ListModels()
+		// return
 		session := getUserGptSetting(msg, 1)
 		if session == "" { //被ban了
 			return
