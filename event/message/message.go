@@ -77,7 +77,7 @@ func group(msg map[string]interface{}) {
 
 	//查询#号，接入修仙游戏
 	msgStr = strings.TrimSpace(msgStr)
-	if msgStr[0] == '#' {
+	if len(msgStr) != 0 && msgStr[0] == '#' {
 		if immortal.CheckKeywords(msgStr, msg) {
 			return
 		}

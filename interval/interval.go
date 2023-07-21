@@ -106,7 +106,8 @@ func youzanSign() {
 	}
 	// 超时时间：60秒
 	client := &http.Client{Timeout: 60 * time.Second, Transport: transport}
-	access_token := "f35ec14e153d307f5c83eb66bcbba5"
+	access_token := "deed557291584a8e7b4d5c367bbdce"
+	extraData := `{"is_weapp":1,"sid":"YZ1131893648129478656YZaY4EfRfH","version":"3.99.7.101","client":"weapp","bizEnv":"retail","uuid":"qWRjuRXwjs4iS0y1679028044231","ftime":1679028044226}`
 	url := "https://h5.youzan.com/wscump/checkin/checkinV2.json?checkinId=2986433&app_id=wxce54ee7f76ebd245&kdt_id=116110226&access_token=" + access_token
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -114,7 +115,7 @@ func youzanSign() {
 		log.Println(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Extra-Data", `{"is_weapp":1,"sid":"YZ1126811151545171968YZKmKNykld","version":"3.98.6","client":"weapp","bizEnv":"retail","uuid":"qWRjuRXwjs4iS0y1679028044231","ftime":1679028044226}`)
+	req.Header.Set("Extra-Data", extraData)
 	req.Header.Set("Host", "h5.youzan.com")
 	req.Header.Set("referer", "https://servicewechat.com/wxce54ee7f76ebd245/31/page-frame.html")
 	req.Header.Set("xweb_xhr", "1")

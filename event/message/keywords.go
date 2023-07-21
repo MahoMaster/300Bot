@@ -3,6 +3,7 @@ package message
 import (
 	"300Bot/conf"
 	"300Bot/function/ban"
+	"300Bot/function/bangDream/station"
 	"300Bot/function/chatGPT"
 	"300Bot/function/emotion"
 	"300Bot/function/heros"
@@ -83,6 +84,7 @@ func checkKeywords(keyword string, msgStr string, msg map[string]interface{}) bo
 		}
 		return true
 	case "bot测试":
+		// station.AskForRoom(msg)
 		// defer func() {
 		// 	if info := recover(); info != nil {
 		// 		fmt.Println("触发了宕机", info)
@@ -123,6 +125,18 @@ func checkKeywords(keyword string, msgStr string, msg map[string]interface{}) bo
 			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
 		} else {
 			chatGPT.SetPersonality(msgArr[1], msg)
+		}
+		return true
+
+	case "ycm", "有车吗":
+		station.AskForRoom(msg)
+		return true
+	case "发车":
+		msgArr := strings.Split(msgStr, keyword)
+		if msgArr[1] == "" || msgArr[1] == " " {
+			send.SendGroupPost(msg["group_id"].(float64), "参数错误")
+		} else {
+			station.CheckSubmitRoom(msgArr[1], msg)
 		}
 		return true
 	// case "单日出场排行", "单日胜率排行", "三日出场排行", "三日胜率排行", "一周出场排行", "一周胜率排行":

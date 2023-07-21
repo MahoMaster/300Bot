@@ -127,7 +127,7 @@ func AskForChatGPT(msg string, qq float64, session string) (openai.ChatCompletio
 
 	model := openai.GPT3Dot5Turbo0613
 	if qqstr == "675559614" {
-		model = openai.GPT3Dot5Turbo16K0613
+		model = openai.GPT3Dot5Turbo0613
 	}
 
 	resp, err := client.CreateChatCompletion(
