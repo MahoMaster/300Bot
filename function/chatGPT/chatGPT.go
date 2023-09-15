@@ -9,8 +9,10 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -31,6 +33,8 @@ var sessions = make(map[string]Session, 0)
 var gptSetting = make(map[string]model.UserGPTSetting, 0)
 
 const memory = 3000
+const is_limit_memory = false //设置为true上面的memory才会生效
+const max_memory = 4000
 
 func init() {
 	initSessions()
@@ -99,7 +103,7 @@ func AskForChatGPT(msg string, qq float64, session string) (openai.ChatCompletio
 		length = length + len(val.Content)
 	}
 	for {
-		if length <= memory { //除去人设，记忆超过容量，删除到容量以内
+		if (length <= memory || !is_limit_memory) && length <= max_memory { //除去人设，记忆超过容量，删除到容量以内
 			break
 		}
 		length = length - len(messages[0].Content)
@@ -125,9 +129,9 @@ func AskForChatGPT(msg string, qq float64, session string) (openai.ChatCompletio
 
 	qqstr := strconv.FormatFloat(qq, 'f', -1, 64)
 
-	model := openai.GPT3Dot5Turbo0613
+	model := openai.GPT40613
 	if qqstr == "675559614" {
-		model = openai.GPT3Dot5Turbo0613
+		model = openai.GPT40613
 	}
 
 	resp, err := client.CreateChatCompletion(
@@ -144,7 +148,7 @@ func AskForChatGPT(msg string, qq float64, session string) (openai.ChatCompletio
 		return resp, err
 	}
 
-	if resp.Usage.CompletionTokens < 200 { //如果回复消耗的token比较少，也可以纳入上下文
+	if resp.Usage.CompletionTokens < 200 || !is_limit_memory { //如果回复消耗的token比较少，也可以纳入上下文
 		sessions[session] = Session{
 			ID:          session,
 			Messages:    append(sessions[session].Messages, resp.Choices[0].Message),
@@ -161,7 +165,7 @@ func JustChatGpt(msg string, qq string) (openai.ChatCompletionResponse, error) {
 	resp, err := client.CreateChatCompletion(
 		context.Background(),
 		openai.ChatCompletionRequest{
-			Model: openai.GPT3Dot5Turbo0301,
+			Model: openai.GPT40613,
 			Messages: []openai.ChatCompletionMessage{
 				{
 					Role:    "user",
@@ -188,6 +192,12 @@ func CreateImg(msgStr string, qq float64) (bool, string) {
 		Prompt: msgStr,
 		User:   qqStr,
 	}
+	// resp,err:=client.CreateImage(context.Background(),openai.ImageRequest{
+	// 	Prompt: msgStr,
+	// 	User:qqStr,
+	// })
+
+	// log.Println(resp,err)
 
 	resp := util.ChatGPTHttpPost("https://api.openai.com/v1/images/generations", data)
 	var res map[string]interface{}
@@ -195,28 +205,56 @@ func CreateImg(msgStr string, qq float64) (bool, string) {
 	if err != nil {
 		fmt.Println(err)
 	}
-	// fmt.Println(res)
+
 	error, has := res["error"]
 	if has {
 		return false, error.(map[string]interface{})["message"].(string)
 	}
-	// type redata struct {
-	// 	Url string `json:"url"`
-	// }
+
 	resdata, _ := res["data"]
-	// fmt.Println(resdata)
+
 	resdata1 := resdata.([]interface{})
-	// fmt.Println(resdata1)
-	//if has {
+
 	return true, resdata1[0].(map[string]interface{})["url"].(string)
-	//	} else {
-	//return false, ""
-	//}
 
 }
 
 func EditImg(filePath string, msgStr string, qq float64) (bool, string) {
-	return true, ""
+	// type ImageEditRequest struct {
+	// 	Image          *os.File `json:"image,omitempty"`
+	// 	Mask           *os.File `json:"mask,omitempty"`
+	// 	Prompt         string   `json:"prompt,omitempty"`
+	// 	N              int      `json:"n,omitempty"`
+	// 	Size           string   `json:"size,omitempty"`
+	// 	ResponseFormat string   `json:"response_format,omitempty"`
+	// }
+
+	// image为根目录/static目录下的avatar.jpg
+	file, err := os.Open(filePath)
+	if err != nil {
+		log.Println(err)
+		return false, err.Error()
+	}
+	defer file.Close()
+	resp, err := client.CreateVariImage(context.Background(), openai.ImageVariRequest{
+		Image:          file,
+		N:              1,
+		Size:           openai.CreateImageSize256x256,
+		ResponseFormat: openai.CreateImageResponseFormatURL,
+	})
+	// resp, err := client.CreateEditImage(context.Background(), openai.ImageEditRequest{
+	// 	Image:          file,
+	// 	Mask:           file,
+	// 	Prompt:         "改为向下",
+	// 	N:              1,
+	// 	Size:           openai.CreateImageSize256x256,
+	// 	ResponseFormat: openai.CreateImageResponseFormatURL,
+	// })
+	if err != nil {
+		return false, err.Error()
+	}
+	return true, resp.Data[0].URL
+	// return true, ""
 	// qqStr := strconv.FormatFloat(qq, 'f', -1, 64)
 	// type req struct {
 	// 	Prompt string `json:"prompt"`
@@ -358,6 +396,8 @@ func AddPlanPrivate(msgStr string, msg map[string]interface{}) {
 	g.goroutineRun(func() {
 		// test()
 		// ListModels()
+		// return
+		// EditImg("./static/temp/3.png", "", 1)
 		// return
 		session := getUserGptSetting(msg, 1)
 		if session == "" { //被ban了

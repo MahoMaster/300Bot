@@ -2,6 +2,7 @@ package controll
 
 import (
 	"300Bot/function/immortal"
+	"300Bot/send"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -53,6 +54,16 @@ func LumaReport(w http.ResponseWriter, r *http.Request) {
 	res["code"] = 0
 
 	immortal.BreakReport(code, progress, mode)
+	resp, _ := json.Marshal(res)
+	w.Write(resp)
+}
+
+func SendMeQQ(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	msg := r.FormValue("msg")
+	send.SendPrivatePost(675559614, msg)
+	var res = make(map[string]interface{})
+	res["code"] = 0
 	resp, _ := json.Marshal(res)
 	w.Write(resp)
 }

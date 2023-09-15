@@ -2,6 +2,7 @@ package message
 
 import (
 	"300Bot/conf"
+	"300Bot/function/bangDream/station"
 	"300Bot/function/chatGPT"
 	"300Bot/function/emotion"
 	"300Bot/function/immortal"
@@ -123,6 +124,12 @@ func group(msg map[string]interface{}) {
 		}
 		return
 	}
+
+	//检查车牌
+	if station.CheckSubmitRoom(msgStr, msg) {
+		return
+	}
+
 	// fmt.Println(self_id)
 	repeat.CheckRepeat(msg)
 }
