@@ -1,0 +1,23 @@
+{
+	"name": "300Bot",
+	"port": "9999",
+	"version": "1.0.0",
+	"apiPort": "6097",
+	"apiUrl": "127.0.0.1",
+	"author": "Maho",
+	"mail": "MahoMaster@163.com",
+	"host": "",
+	"botQQ": "2466001518",
+	"botName": "叁柏",
+	"manager": "675559614",
+	"databaseHost": "ip:3306",
+	"databaseUser": "root",
+	"databasePassword": "root",
+	"botDatabaseName": "chat_bot",
+	"heroDatabaseName": "300heros",
+	"immortalbaseName": "luma_immortal",
+	"chatGPTkey": "",
+	"VPN": "http://127.0.0.1:7078",
+	"wetherApiCode": "",
+	"moneyList": []
+}

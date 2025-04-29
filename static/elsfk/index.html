@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0"
+		/>
+		<title>简易俄罗斯方块</title>
+		<style>
+			html,
+			body {
+				height: 100%;
+				margin: 0;
+			}
+			body {
+				background: black;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+			canvas {
+				border: 1px solid white;
+			}
+			.container {
+				width: 100%;
+				height: 100%;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				flex-direction: column;
+			}
+			.rightBox {
+				margin-left: 15px;
+				display: flex;
+				flex-direction: column;
+				margin-bottom: 20px;
+			}
+			.button {
+				width: 50px;
+				height: 50px;
+				box-sizing: border-box;
+				padding: 5px;
+				margin-right: 15px;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<div class="rightBox">
+				<div
+					id="result"
+					style="color: #fff; text-align: center; margin-bottom: 20px"
+				>
+					已消除了 <span id="hasCleard">0</span> 行
+				</div>
+				<div class="buttonBox">
+					<button
+						id="left"
+						class="button"
+					>
+						←
+					</button>
+					<button
+						id="down"
+						class="button"
+					>
+						↓
+					</button>
+					<button
+						id="right"
+						class="button"
+					>
+						→
+					</button>
+
+					<button
+						id="up"
+						class="button"
+					>
+						↻
+					</button>
+				</div>
+			</div>
+			<canvas
+				id="game"
+				width="320"
+				height="480"
+			></canvas>
+		</div>
+	</body>
+	<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+	<script>
+		function getUrlVars() {
+			var vars = [],
+				hash;
+			var decodeUrl = decodeURI(window.location.href);
+			var hashes = window.location.href
+				.slice(window.location.href.indexOf("?") + 1)
+				.split("&");
+			for (var i = 0; i < hashes.length; i++) {
+				hash = hashes[i].split("=");
+				vars.push(hash[0]);
+				vars[hash[0]] = hash[1];
+			}
+			return vars;
+		}
+		const params = getUrlVars();
+		let needLine = 0;
+		let code = "";
+		let flag = true; //false失败
+		if (!params.hasOwnProperty("code")) {
+			alert("参数错误");
+			location.replace("http://www.mahomaster.com");
+			// return;
+		} else {
+			code = params.code;
+			axios(`/lumaCode2Info?code=${code}&mode=1`).then(res => {
+				console.log(res);
+
+				if (res.data.code != 0) {
+					alert(res.data.msg);
+					location.replace("http://www.mahomaster.com");
+				} else {
+					while (true) {
+						let qq = prompt("请输入qq号");
+						if (qq != res.data.data.qq) {
+							alert("qq不正确");
+						} else {
+							break;
+						}
+					}
+					needLine = res.data.data.need_rank;
+					alert("你需要完成消除" + needLine + "行来完成突破");
+				}
+			});
+		}
+
+		const canvas = document.getElementById("game");
+		const context = canvas.getContext("2d");
+		const scale = 32;
+		const r = 10;
+		const f = 15;
+		canvas.width = r * scale;
+		canvas.height = f * scale;
+		context.scale(scale, scale);
+		let linesCleared = 0;
+
+		function report(progress) {
+			axios(`/lumaReport?code=${code}&progress=${progress}&mode=1`).then(res => {
+				console.log(res);
+			});
+		}
+		let flag1 = false;
+		let flag2 = false;
+		function checkProgress() {
+			// console.log(flag);
+			// console.log(linesCleared);
+			// console.log("www");
+			if (!flag) {
+				return;
+			}
+			let progress = "0";
+			if (linesCleared == 0) {
+				progress = "0";
+				report(progress);
+				flag = false;
+				alert("突破失败，少侠请回吧");
+				return;
+			}
+			if (linesCleared >= needLine) {
+				progress = "100";
+				report(progress);
+				flag = false;
+				alert("突破成功，别玩儿了");
+				return;
+			}
+			if (linesCleared / needLine > 0.6 && !flag2) {
+				flag2 = true;
+				progress = "60";
+				report(progress);
+				return;
+			}
+			if (linesCleared / needLine > 0.3 && !flag1) {
+				flag1 = true;
+				progress = "30";
+				report(progress);
+				return;
+			}
+		}
+
+		function arenaSweep() {
+			outer: for (let y = arena.length - 1; y > 0; --y) {
+				for (let x = 0; x < arena[y].length; ++x) {
+					if (!arena[y][x]) {
+						continue outer;
+					}
+				}
+				const row = arena.splice(y, 1)[0].fill(0);
+				arena.unshift(row);
+				++y;
+				linesCleared++;
+				document.getElementById("hasCleard").innerHTML = linesCleared;
+				checkProgress();
+			}
+		}
+
+		function collide(arena, player) {
+			const [m, o] = [player.matrix, player.pos];
+			for (let y = 0; y < m.length; ++y) {
+				for (let x = 0; x < m[y].length; ++x) {
+					if (m[y][x] && (arena[y + o.y] && arena[y + o.y][x + o.x]) !== 0) {
+						return true;
+					}
+				}
+			}
+			return false;
+		}
+
+		function createMatrix(w, h) {
+			const matrix = [];
+			while (h--) {
+				matrix.push(new Array(w).fill(0));
+			}
+			return matrix;
+		}
+
+		function draw() {
+			context.fillStyle = "black";
+			context.fillRect(0, 0, canvas.width, canvas.height);
+
+			drawMatrix(arena, { x: 0, y: 0 });
+			drawMatrix(player.matrix, player.pos);
+		}
+
+		function drawMatrix(matrix, offset) {
+			matrix.forEach((row, y) => {
+				row.forEach((value, x) => {
+					if (value) {
+						context.fillStyle = "white";
+						context.fillRect(x + offset.x, y + offset.y, 1, 1);
+					}
+				});
+			});
+		}
+
+		function merge(arena, player) {
+			player.matrix.forEach((row, y) => {
+				row.forEach((value, x) => {
+					if (value) {
+						arena[y + player.pos.y][x + player.pos.x] = value;
+					}
+				});
+			});
+		}
+		function rotate(matrix, dir) {
+			const transpose = matrix =>
+				matrix[0].map((_, colIndex) => matrix.map(row => row[colIndex]));
+
+			const reverse = matrix => matrix.map(row => row.reverse());
+
+			return dir > 0 ? reverse(transpose(matrix)) : transpose(reverse(matrix));
+		}
+		// function rotate(matrix, dir) {
+		// 	for (let y = 0; y < matrix.length; ++y) {
+		// 		for (let x = 0; x < y; ++x) {
+		// 			[matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
+		// 		}
+		// 	}
+
+		// 	if (dir > 0) {
+		// 		matrix.forEach(row => row.reverse());
+		// 	} else {
+		// 		matrix.reverse();
+		// 	}
+		// }
+		// function rotate(matrix) {
+		// 	const n = matrix.length;
+		// 	const result = Array.from({ length: n }, () => Array(n).fill(0));
+
+		// 	for (let i = 0; i < n; i++) {
+		// 		for (let j = 0; j < n; j++) {
+		// 			result[i][j] = matrix[n - j - 1][i];
+		// 		}
+		// 	}
+
+		// 	return result;
+		// }
+		function playerDrop() {
+			player.pos.y++;
+			if (collide(arena, player)) {
+				player.pos.y--;
+				merge(arena, player);
+				resetPlayer();
+				arenaSweep();
+			}
+			dropCounter = 0;
+		}
+
+		function resetPlayer() {
+			player.matrix = createPiece();
+			player.pos.y = 0;
+			player.pos.x = ((arena[0].length / 2) | 0) - ((player.matrix[0].length / 2) | 0);
+
+			if (collide(arena, player)) {
+				console.log("fail");
+				linesCleared = 0;
+
+				checkProgress();
+				arena.forEach(row => row.fill(0));
+			}
+		}
+
+		function createPiece() {
+			const pieces = "ILJOTSZ";
+			const piece = pieces[(pieces.length * Math.random()) | 0];
+			switch (piece) {
+				case "I":
+					return [[1, 1, 1, 1]];
+				case "L":
+					return [
+						[0, 2, 0],
+						[2, 2, 2]
+					];
+				case "J":
+					return [
+						[0, 3, 0],
+						[0, 3, 0],
+						[3, 3, 0]
+					];
+				case "O":
+					return [
+						[4, 4],
+						[4, 4]
+					];
+				case "T":
+					return [
+						[0, 5, 0],
+						[5, 5, 5]
+					];
+				case "S":
+					return [
+						[0, 6, 6],
+						[6, 6, 0]
+					];
+				case "Z":
+					return [
+						[7, 7, 0],
+						[0, 7, 7]
+					];
+			}
+		}
+
+		let dropCounter = 0;
+		let dropInterval = 1000;
+
+		let lastTime = 0;
+		function update(time = 0) {
+			const deltaTime = time - lastTime;
+			lastTime = time;
+
+			dropCounter += deltaTime;
+			if (dropCounter > dropInterval) {
+				playerDrop();
+			}
+
+			draw();
+			requestAnimationFrame(update);
+		}
+
+		const arena = createMatrix(r, f);
+		const player = {
+			pos: { x: 0, y: 0 },
+			matrix: null
+		};
+		function left() {
+			player.pos.x--;
+			if (collide(arena, player)) {
+				player.pos.x++;
+			}
+		}
+		function right() {
+			player.pos.x++;
+			if (collide(arena, player)) {
+				player.pos.x--;
+			}
+		}
+		function upRotate() {
+			// rotate(player.matrix, 1);
+			// if (collide(arena, player)) {
+			// 	rotate(player.matrix, -1);
+			// }
+			// const rotatedMatrix = rotate(player.matrix);
+			// if (!collide(arena, { pos: player.pos, matrix: rotatedMatrix })) {
+			// 	player.matrix = rotatedMatrix;
+			// }
+			const rotatedMatrix = rotate(player.matrix, 1);
+			if (!collide(arena, { pos: player.pos, matrix: rotatedMatrix })) {
+				player.matrix = rotatedMatrix;
+			}
+		}
+		document.addEventListener("keydown", event => {
+			if (event.keyCode === 37) {
+				left();
+			} else if (event.keyCode === 39) {
+				right();
+			} else if (event.keyCode === 40) {
+				playerDrop();
+			} else if (event.keyCode === 38) {
+				upRotate();
+			}
+			// return 123 != event.keyCode || (event.returnValue = false);
+		});
+
+		// document.addEventListener("contextmenu", function (event) {
+		// 	return (event.returnValue = false);
+		// });
+
+		document.getElementById("left").onclick = left;
+		document.getElementById("right").onclick = right;
+		document.getElementById("down").onclick = playerDrop;
+		document.getElementById("up").onclick = upRotate;
+		resetPlayer();
+		update();
+	</script>
+</html>
