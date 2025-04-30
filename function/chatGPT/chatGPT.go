@@ -82,7 +82,7 @@ func AskForChatGPT(msg string, qq float64, session string) (openai.ChatCompletio
 	// var personality = sessions[session].Personality
 	var personality = openai.ChatCompletionMessage{
 		Role:    "system",
-		Content: "你的称呼叫叁柏，你在回复中对自己的称呼也是叁柏。请回复的更自然一些，用口语化表达，避免机械式分点回答。采用自然的人类对话风格，可合理使用省略句和感叹词。",
+		Content: "你的称呼叫叁柏，你在回复中对自己的称呼也是叁柏。请回复的更自然一些，用口语化表达，避免机械式分点回答。尽量使用和大家在网络群聊中一样的语气。",
 	}
 
 	//距离上次对话已经超过30分钟，清除上下文
@@ -130,7 +130,7 @@ func AskForChatGPT(msg string, qq float64, session string) (openai.ChatCompletio
 
 	qqstr := strconv.FormatFloat(qq, 'f', -1, 64)
 
-	model := "qwen-max"
+	model := "deepseek-r1"
 	// if qqstr == "675559614" {
 	// 	model = "deepseek-r1"
 	// }
@@ -166,7 +166,7 @@ func JustChatGpt(msg string, qq string) (openai.ChatCompletionResponse, error) {
 	resp, err := client.CreateChatCompletion(
 		context.Background(),
 		openai.ChatCompletionRequest{
-			Model: "qwen-max",
+			Model: "deepseek-r1",
 			Messages: []openai.ChatCompletionMessage{
 				{
 					Role:    "user",
