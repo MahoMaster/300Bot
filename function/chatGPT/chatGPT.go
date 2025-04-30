@@ -6,12 +6,9 @@ import (
 	"300Bot/send"
 	"300Bot/util"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -34,23 +31,23 @@ var gptSetting = make(map[string]model.UserGPTSetting, 0)
 
 const memory = 3000
 const is_limit_memory = false //设置为true上面的memory才会生效
-const max_memory = 4000
+const max_memory = 32000
 
 func init() {
 	initSessions()
 	config := openai.DefaultConfig(conf.Config.ChatGPTKey)
-	proxyUrl, err := url.Parse(conf.Config.VPN)
-	if err != nil {
-		panic(err)
-	}
-	transport := &http.Transport{
-		Proxy:           http.ProxyURL(proxyUrl),
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-	config.HTTPClient = &http.Client{
-		Transport: transport,
-	}
-
+	// proxyUrl, err := url.Parse(conf.Config.VPN)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// transport := &http.Transport{
+	// 	Proxy:           http.ProxyURL(proxyUrl),
+	// 	TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	// }
+	// config.HTTPClient = &http.Client{
+	// 	Transport: transport,
+	// }
+	config.BaseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 	client = openai.NewClientWithConfig(config)
 
 	// m, _ := client.ListModels(context.Background())
@@ -129,10 +126,10 @@ func AskForChatGPT(msg string, qq float64, session string) (openai.ChatCompletio
 
 	qqstr := strconv.FormatFloat(qq, 'f', -1, 64)
 
-	model := openai.GPT3Dot5Turbo0125
-	if qqstr == "675559614" {
-		model = openai.GPT4o20240513
-	}
+	model := "deepseek-r1"
+	// if qqstr == "675559614" {
+	// 	model = "deepseek-r1"
+	// }
 
 	resp, err := client.CreateChatCompletion(
 		context.Background(),
@@ -407,7 +404,6 @@ func AddPlanPrivate(msgStr string, msg map[string]interface{}) {
 		res, err := AskForChatGPT(msgStr, msg["user_id"].(float64), session)
 
 		if err == nil && res.Choices[0].Message.Content != "" {
-
 			send.SendPrivatePost(msg["user_id"].(float64), strings.TrimSpace(res.Choices[0].Message.Content))
 			// send.SendTTS(msg["group_id"].(float64), strings.TrimSpace(res.Choices[0].Message.Content))
 			model.LogUserUseTokens(msg["user_id"].(float64), res.Usage.TotalTokens, res.ID)
