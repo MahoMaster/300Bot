@@ -77,12 +77,12 @@ func ListModels() {
 	fmt.Println(string(bt))
 }
 
-func AskForChatGPT(msg string, qq float64, session string) (openai.ChatCompletionResponse, error) {
+func AskForChatGPT(msg string, qq float64, remark string, session string) (openai.ChatCompletionResponse, error) {
 	var messages = sessions[session].Messages
 	// var personality = sessions[session].Personality
 	var personality = openai.ChatCompletionMessage{
 		Role:    "system",
-		Content: "你的称呼叫叁柏，你在回复中对自己的称呼也是叁柏。请回复的更自然一些，用口语化表达，避免机械式分点回答。尽量使用和大家在网络群聊中一样的语气。",
+		Content: "你的称呼叫叁柏，你在回复中对自己的称呼也是叁柏。请回复的更自然一些，用口语化表达，避免机械式分点回答。尽量使用和大家在网络群聊中一样的语气。如果用户告诉了你他是谁，代表这是个群聊，有多个人在和你聊天，请注意分别人物。",
 	}
 
 	//距离上次对话已经超过30分钟，清除上下文
@@ -90,7 +90,9 @@ func AskForChatGPT(msg string, qq float64, session string) (openai.ChatCompletio
 	if now-sessions[session].Last_time > 1800 {
 		messages = make([]openai.ChatCompletionMessage, 0)
 	}
-
+	if remark != "" {
+		msg = "我是" + remark + ",我想对你说:" + msg
+	}
 	messages = append(messages, openai.ChatCompletionMessage{
 		Role:    "user",
 		Content: msg,
@@ -383,7 +385,11 @@ func AddPlan(msgStr string, msg map[string]interface{}) {
 			return
 		}
 		checkSession(session)
-		res, err := AskForChatGPT(msgStr, msg["user_id"].(float64), session)
+		remark := msg["sender"].(map[string]interface{})["nickname"].(string)
+		if msg["sender"].(map[string]interface{})["card"].(string) != "" {
+			remark = msg["sender"].(map[string]interface{})["card"].(string)
+		}
+		res, err := AskForChatGPT(msgStr, msg["user_id"].(float64), remark, session)
 
 		if err == nil && res.Choices[0].Message.Content != "" {
 
@@ -405,7 +411,7 @@ func AddPlanPrivate(msgStr string, msg map[string]interface{}) {
 			return
 		}
 		checkSession(session)
-		res, err := AskForChatGPT(msgStr, msg["user_id"].(float64), session)
+		res, err := AskForChatGPT(msgStr, msg["user_id"].(float64), "", session)
 
 		if err == nil && res.Choices[0].Message.Content != "" {
 			send.SendPrivatePost(msg["user_id"].(float64), strings.TrimSpace(res.Choices[0].Message.Content))
