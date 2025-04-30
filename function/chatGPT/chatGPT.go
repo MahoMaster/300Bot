@@ -126,7 +126,7 @@ func AskForChatGPT(msg string, qq float64, session string) (openai.ChatCompletio
 
 	qqstr := strconv.FormatFloat(qq, 'f', -1, 64)
 
-	model := "deepseek-r1"
+	model := "qwen-max"
 	// if qqstr == "675559614" {
 	// 	model = "deepseek-r1"
 	// }
@@ -153,8 +153,8 @@ func AskForChatGPT(msg string, qq float64, session string) (openai.ChatCompletio
 			Personality: sessions[session].Personality,
 		}
 	}
-	// json, err := json.Marshal(resp)
-	// fmt.Println(string(json))
+	json, err := json.Marshal(resp)
+	fmt.Println(string(json))
 	return resp, err
 }
 
@@ -162,7 +162,7 @@ func JustChatGpt(msg string, qq string) (openai.ChatCompletionResponse, error) {
 	resp, err := client.CreateChatCompletion(
 		context.Background(),
 		openai.ChatCompletionRequest{
-			Model: openai.GPT40613,
+			Model: "qwen-max",
 			Messages: []openai.ChatCompletionMessage{
 				{
 					Role:    "user",
