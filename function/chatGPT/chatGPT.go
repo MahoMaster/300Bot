@@ -64,7 +64,7 @@ func initSessions() {
 			Messages:  messages,
 			Last_time: 0,
 			Personality: openai.ChatCompletionMessage{
-				Role:    "user",
+				Role:    "system",
 				Content: val.Gpt_personality,
 			},
 		}
@@ -79,7 +79,11 @@ func ListModels() {
 
 func AskForChatGPT(msg string, qq float64, session string) (openai.ChatCompletionResponse, error) {
 	var messages = sessions[session].Messages
-	var personality = sessions[session].Personality
+	// var personality = sessions[session].Personality
+	var personality = openai.ChatCompletionMessage{
+		Role:    "system",
+		Content: "你的称呼叫叁柏，你在回复中对自己的称呼也是叁柏。请回复的更自然一些，用口语化表达，避免机械式分点回答。采用自然的人类对话风格，可合理使用省略句和感叹词。",
+	}
 
 	//距离上次对话已经超过30分钟，清除上下文
 	now := int(time.Now().Unix())
