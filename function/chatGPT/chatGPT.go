@@ -91,7 +91,7 @@ func AskForChatGPT(msg string, qq float64, remark string, session string) (opena
 		messages = make([]openai.ChatCompletionMessage, 0)
 	}
 	if remark != "" {
-		msg = "我是" + remark + ",我想对你说:" + msg
+		msg = "我是'" + remark + "',我想对你说:" + msg
 	}
 	messages = append(messages, openai.ChatCompletionMessage{
 		Role:    "user",
