@@ -1,6 +1,8 @@
 # 300Bot(2020-11-16)
 
-使用 [go-cqhttp](https://github.com/Mrs4s/go-cqhttp) 的 api 进行开发
+~~使用 [go-cqhttp](https://github.com/Mrs4s/go-cqhttp) 的 api 进行开发~~
+
+现在改成了 [NapCatQQ](https://github.com/NapNeko/NapCatQQ)
 
 文档暂时可查看 `docs` 目录， 目前还在撰写中.
 
@@ -24,8 +26,8 @@
 
 #### 指令
 
-> 拓展指令可前往 [文档](http://www.mahomaster.com:3000/Maho/300Bot/src/master/doc/order.md) 查看
-> 修仙指令可前往 [文档](http://www.mahomaster.com:3000/Maho/300Bot/src/master/doc/immortal.md) 查看
+> 拓展指令可前往 [文档](http://gogs.yugi.cc/Maho/300Bot/src/master/doc/order.md) 查看
+> 修仙指令可前往 [文档](http://gogs.yugi.cc/Maho/300Bot/src/master/doc/immortal.md) 查看
 
 -   [x] 使用帮助
 -   [x] 整点二次元
