@@ -45,8 +45,14 @@ func CheckRepeat(msg map[string]interface{}) {
 			if err == nil {
 				if cqMap["type"] == "image" {
 					// 如果是图片，只需要比较图片的file
-					file := cqMap["file"]
-					rawMessage = file
+					if _, ok := cqMap["url"]; ok {
+						// 如果有url,以url为准
+						rawMessage = cqMap["url"]
+					} else {
+						file := cqMap["file"]
+						rawMessage = file
+					}
+
 				}
 			}
 		}
