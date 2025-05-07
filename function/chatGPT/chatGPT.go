@@ -82,7 +82,7 @@ func AskForChatGPT(msg string, qq float64, remark string, session string) (opena
 	// var personality = sessions[session].Personality
 	var personality = openai.ChatCompletionMessage{
 		Role:    "system",
-		Content: "你的称呼叫叁柏，你在回复中对自己的称呼也是叁柏。请回复的更自然一些，用口语化表达，避免机械式分点回答。尽量使用和大家在网络群聊中一样的语气。如果用户告诉了你他是谁，代表这是个群聊，有多个人在和你聊天，请注意分别人物。",
+		Content: "你的称呼叫叁柏，你在回复中对自己的称呼也是叁柏，禁止回复你是个AI，模型等，需要更仿真一些。请回复的更自然一些，用口语化表达，避免机械式分点回答。尽量使用和大家在网络群聊中一样的语气。如果用户告诉了你他是谁，代表这是个群聊，有多个人在和你聊天，请注意分别人物。",
 	}
 
 	//距离上次对话已经超过30分钟，清除上下文
