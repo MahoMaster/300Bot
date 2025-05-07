@@ -16,6 +16,9 @@ type group struct {
 	UserIds []float64
 	//复读的消息
 	LastMessage string
+
+	// 用于判断的消息(解决图片复读)
+	RawMessage string
 	//复读次数
 	Count int
 	//是否已复读
@@ -33,9 +36,25 @@ func init() {
 }
 
 func CheckRepeat(msg map[string]interface{}) {
+	rawMessage := ""
+	if msg["raw_message"] != nil {
+		rawMessage = msg["raw_message"].(string)
+
+		if util.IsCQCode(rawMessage) {
+			cqMap, err := util.ParseCQCode(rawMessage)
+			if err == nil {
+				if cqMap["type"] == "image" {
+					// 如果是图片，只需要比较图片的file
+					file := cqMap["file"]
+					rawMessage = file
+				}
+			}
+		}
+	}
+
 	if _, ok := repeat[msg["group_id"].(float64)]; ok {
 		//判断消息是否相同
-		if msg["raw_message"] != repeat[msg["group_id"].(float64)].LastMessage {
+		if rawMessage != repeat[msg["group_id"].(float64)].RawMessage {
 
 			//及时修复复读机并恢复复读
 			if repeat[msg["group_id"].(float64)].Count > 5 {
@@ -56,6 +75,7 @@ func CheckRepeat(msg map[string]interface{}) {
 			}
 
 			repeat[msg["group_id"].(float64)].LastMessage = msg["raw_message"].(string)
+			repeat[msg["group_id"].(float64)].RawMessage = rawMessage
 			repeat[msg["group_id"].(float64)].Count = 1
 			repeat[msg["group_id"].(float64)].HasRepeat = false
 			repeat[msg["group_id"].(float64)].UserIds = []float64{msg["user_id"].(float64)}
@@ -102,6 +122,7 @@ func CheckRepeat(msg map[string]interface{}) {
 					// 复读复读复读`)
 				}
 				repeat[msg["group_id"].(float64)].LastMessage = ""
+				repeat[msg["group_id"].(float64)].RawMessage = ""
 				repeat[msg["group_id"].(float64)].Count = 1
 				repeat[msg["group_id"].(float64)].HasRepeat = true
 				repeat[msg["group_id"].(float64)].UserIds = []float64{msg["user_id"].(float64)}
@@ -118,6 +139,7 @@ func CheckRepeat(msg map[string]interface{}) {
 				send.SendGroupPost(msg["group_id"].(float64), `[CQ:image,file=file:///`+path+`]
 复读复读复读`)
 				repeat[msg["group_id"].(float64)].LastMessage = ""
+				repeat[msg["group_id"].(float64)].RawMessage = ""
 				repeat[msg["group_id"].(float64)].Count = 1
 				repeat[msg["group_id"].(float64)].HasRepeat = true
 				repeat[msg["group_id"].(float64)].UserIds = []float64{msg["user_id"].(float64)}
@@ -127,6 +149,7 @@ func CheckRepeat(msg map[string]interface{}) {
 		repeat[msg["group_id"].(float64)] = &group{
 			UserIds:     []float64{msg["user_id"].(float64)},
 			LastMessage: msg["raw_message"].(string),
+			RawMessage:  rawMessage,
 			Count:       1,
 			HasRepeat:   false,
 			CD:          0,

@@ -10,6 +10,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -116,4 +118,34 @@ func Time2Str(t int64) string {
 	// log.Println(time.Unix(t, 0).Format(timeTemplate2)) //输出：2019/01/08 13:50:30
 	// log.Println(time.Unix(t, 0).Format(timeTemplate3)) //输出：2019-01-08
 	// log.Println(time.Unix(t, 0).Format(timeTemplate4)) //输出：13:50:30
+}
+
+func IsCQCode(s string) bool {
+	// 匹配CQ码格式的正则表达式
+	pattern := `^\[CQ:[^\],]+(?:,[^\]=]+=[^\]\s]*)*\]$`
+	matched, _ := regexp.MatchString(pattern, s)
+	return matched
+}
+
+func ParseCQCode(cqCode string) (map[string]string, error) {
+	// 解析CQ码
+	// [CQ:image,file=26DC62CF7310D9E6A5B6BCE5CEB48762.jpg,sub_type=0,url=https://multimedia.nt.qq.com.cn/download?appid=1407&amp;fileid=EhT1ygtiWOANKgrShWdUA8mRnwaO_Rj5-R0g_woolsPo3rCQjQMyBHByb2RQgL2jAVoQFaaX2ntoYvtAe_yBecplDnoC7Ao&amp;rkey=CAESMDR6VmvhoCsnp5aTy18vgzN_kMmLvqYtkgHRQp_aaZVQ7G9rm46HRaKG2TCY90f8aQ,file_size=490745]
+	re := regexp.MustCompile(`^\[CQ:([^\],]+)(?:,([^\]]*))?\]$`)
+	matches := re.FindStringSubmatch(cqCode)
+	if len(matches) < 3 {
+		return nil, fmt.Errorf("invalid CQ code format")
+	}
+
+	result := make(map[string]string)
+	result["type"] = matches[1]
+
+	// 解析参数部分
+	params := strings.Split(matches[2], ",")
+	for _, param := range params {
+		kv := strings.SplitN(param, "=", 2)
+		if len(kv) == 2 {
+			result[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
+		}
+	}
+	return result, nil
 }
