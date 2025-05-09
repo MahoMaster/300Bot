@@ -69,6 +69,9 @@ func sayGoodMorning() {
 		if honor["retcode"].(float64) == 0 {
 			if honor["data"].(map[string]interface{})["current_talkative"] != nil {
 				dragonKing := honor["data"].(map[string]interface{})["current_talkative"].(map[string]interface{})
+				if dragonKing["user_id"] == nil {
+					continue
+				}
 				qqStr := strconv.FormatFloat(dragonKing["user_id"].(float64), 'f', -1, 64)
 				// count := strconv.FormatFloat(dragonKing["day_count"].(float64), 'f', -1, 64)
 				description := dragonKing["description"].(string)
