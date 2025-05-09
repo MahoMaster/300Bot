@@ -76,7 +76,7 @@ func sayGoodMorning() {
 				// count := strconv.FormatFloat(dragonKing["day_count"].(float64), 'f', -1, 64)
 				description := dragonKing["description"].(string)
 				if qqStr != conf.Config.BotQQ {
-					send.SendGroupPost(value.Group_id, `[CQ:at,qq=`+qqStr+`] 哦哈哟，龙王大哥哥~ 你已经蝉联龙王`+description+`了。加油啊，龙王大哥哥，继续水群摩多摩多`)
+					send.SendGroupPost(value.Group_id, `[CQ:at,qq=`+qqStr+`] 哦哈哟，龙王大哥哥~ 你已经当龙王`+description+`。加油啊，龙王大哥哥，继续水群摩多摩多`)
 				}
 			}
 		}
