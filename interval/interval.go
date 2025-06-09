@@ -73,6 +73,9 @@ func sayGoodMorning() {
 					continue
 				}
 				qqStr := strconv.FormatFloat(dragonKing["user_id"].(float64), 'f', -1, 64)
+				if qqStr == "1124685812" {
+					continue
+				}
 				// count := strconv.FormatFloat(dragonKing["day_count"].(float64), 'f', -1, 64)
 				description := dragonKing["description"].(string)
 				if qqStr != conf.Config.BotQQ {
