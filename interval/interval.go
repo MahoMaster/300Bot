@@ -73,7 +73,7 @@ func sayGoodMorning() {
 					continue
 				}
 				qqStr := strconv.FormatFloat(dragonKing["user_id"].(float64), 'f', -1, 64)
-				if qqStr == "1124685812" {
+				if qqStr == "1124685812" || qqStr == "2331683092" {
 					continue
 				}
 				// count := strconv.FormatFloat(dragonKing["day_count"].(float64), 'f', -1, 64)
