@@ -71,8 +71,11 @@ func SendMeQQ(w http.ResponseWriter, r *http.Request) {
 
 func JustChat(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	msg := r.FormValue("msg")
-	qq := r.FormValue("qq")
+
+	var reqData = make(map[string]interface{})
+	json.NewDecoder(r.Body).Decode(&reqData)
+	msg := reqData["msg"].(string)
+	qq := reqData["qq"].(string)
 
 	resp, _ := chatGPT.JustChatGpt(msg, qq)
 
