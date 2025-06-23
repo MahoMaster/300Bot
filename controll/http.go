@@ -1,6 +1,7 @@
 package controll
 
 import (
+	"300Bot/function/chatGPT"
 	"300Bot/function/immortal"
 	"300Bot/send"
 	"encoding/json"
@@ -66,4 +67,20 @@ func SendMeQQ(w http.ResponseWriter, r *http.Request) {
 	res["code"] = 0
 	resp, _ := json.Marshal(res)
 	w.Write(resp)
+}
+
+func JustChat(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	msg := r.FormValue("msg")
+	qq := r.FormValue("qq")
+
+	resp, _ := chatGPT.JustChatGpt(msg, qq)
+
+	var res = make(map[string]interface{})
+	res["code"] = 0
+	res["data"] = resp
+
+	resData, _ := json.Marshal(res)
+
+	w.Write(resData)
 }
