@@ -16,7 +16,7 @@ if [ -f build ]; then
  cp ./build ./$project_name
  chmod -R 777 $project_name
  nowDate=$(date +%F)
- nohup ./$project_name >./logs/$nowDate.log 2>&1 &
+ nohup ./$project_name 2>&1 | cronolog ./logs/%Y-%m-%d.log &
 else
  echo "app file not found,qiut"
 fi
