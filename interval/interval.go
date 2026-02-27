@@ -37,7 +37,7 @@ func timeInterval() {
 	// })
 	spec1 := "0 38 9 * * *"
 	c.AddFunc(spec1, func() {
-		sayGoodMorning()
+		// sayGoodMorning()
 
 		// youzanSign()
 		// sendLike()
