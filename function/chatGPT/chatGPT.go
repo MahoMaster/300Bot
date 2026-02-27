@@ -151,7 +151,7 @@ func AskForChatGPT(msg string, qq float64, remark string, session string) (opena
 		return resp, err
 	}
 
-	if resp.Usage.CompletionTokens < 200 || !is_limit_memory { //如果回复消耗的token比较少，也可以纳入上下文
+	if !is_limit_memory { //如果回复消耗的token比较少，也可以纳入上下文
 		sessions[session] = Session{
 			ID:          session,
 			Messages:    append(sessions[session].Messages, resp.Choices[0].Message),
