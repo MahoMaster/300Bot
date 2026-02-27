@@ -132,7 +132,7 @@ func AskForChatGPT(msg string, qq float64, remark string, session string) (opena
 
 	qqstr := strconv.FormatFloat(qq, 'f', -1, 64)
 
-	model := "deepseek-r1"
+	model := "LongCat-Flash-Chat"
 	// if qqstr == "675559614" {
 	// 	model = "deepseek-r1"
 	// }
