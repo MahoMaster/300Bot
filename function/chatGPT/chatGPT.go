@@ -47,7 +47,7 @@ func init() {
 	// config.HTTPClient = &http.Client{
 	// 	Transport: transport,
 	// }
-	config.BaseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+	config.BaseURL = "https://api.longcat.chat/openai"
 	client = openai.NewClientWithConfig(config)
 
 	// m, _ := client.ListModels(context.Background())
