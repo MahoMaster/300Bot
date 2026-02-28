@@ -98,6 +98,9 @@ func JustChat(w http.ResponseWriter, r *http.Request) {
 func SendQQMsg(w http.ResponseWriter, r *http.Request) {
 	var res = make(map[string]interface{})
 	res["code"] = 0
+	log.Println(r.FormValue("title"))
+	log.Println(r.FormValue("message"))
+	log.Println(r.FormValue("qrCode"))
 
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -111,14 +114,16 @@ func SendQQMsg(w http.ResponseWriter, r *http.Request) {
 	qqStr := strings.TrimPrefix(r.URL.Path, "/sendQQMsg/")
 	qqStr = strings.Trim(qqStr, "/")
 	qq, err := strconv.ParseFloat(qqStr, 64)
+
 	if err != nil {
 		res["code"] = 1
 		res["msg"] = "qq参数错误"
+		log.Println(err)
 		resp, _ := json.Marshal(res)
 		w.Write(resp)
 		return
 	}
-
+	log.Println(qq)
 	parseErr := r.ParseMultipartForm(20 << 20)
 	if parseErr != nil {
 		r.ParseForm()
