@@ -5,6 +5,7 @@ import (
 	"300Bot/function/immortal"
 	"300Bot/function/qrcode"
 	"300Bot/send"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -98,9 +99,6 @@ func JustChat(w http.ResponseWriter, r *http.Request) {
 func SendQQMsg(w http.ResponseWriter, r *http.Request) {
 	var res = make(map[string]interface{})
 	res["code"] = 0
-	log.Println(r.FormValue("title"))
-	log.Println(r.FormValue("message"))
-	log.Println(r.FormValue("qrCode"))
 
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -118,20 +116,60 @@ func SendQQMsg(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		res["code"] = 1
 		res["msg"] = "qq参数错误"
-		log.Println(err)
 		resp, _ := json.Marshal(res)
 		w.Write(resp)
 		return
 	}
-	log.Println(qq)
-	parseErr := r.ParseMultipartForm(20 << 20)
-	if parseErr != nil {
-		r.ParseForm()
+
+	type sendQQMsgJSON struct {
+		Title     string `json:"title"`
+		Message   string `json:"message"`
+		ImageFile string `json:"imageFile"`
+		QRCode    string `json:"qrCode"`
 	}
 
-	title := strings.TrimSpace(r.FormValue("title"))
-	message := strings.TrimSpace(r.FormValue("message"))
-	qrCodeText := strings.TrimSpace(r.FormValue("qrCode"))
+	var title string
+	var message string
+	var imageFileValue string
+	var qrCodeText string
+
+	contentType := r.Header.Get("Content-Type")
+	contentType = strings.ToLower(contentType)
+
+	if strings.HasPrefix(contentType, "application/json") {
+		var req sendQQMsgJSON
+		decodeErr := json.NewDecoder(r.Body).Decode(&req)
+		if decodeErr != nil {
+			res["code"] = 1
+			res["msg"] = "json解析失败"
+			resp, _ := json.Marshal(res)
+			w.Write(resp)
+			return
+		}
+		title = strings.TrimSpace(req.Title)
+		message = strings.TrimSpace(req.Message)
+		imageFileValue = strings.TrimSpace(req.ImageFile)
+		qrCodeText = strings.TrimSpace(req.QRCode)
+	} else if strings.HasPrefix(contentType, "multipart/form-data") {
+		parseErr := r.ParseMultipartForm(20 << 20)
+		if parseErr != nil {
+			res["code"] = 1
+			res["msg"] = "form解析失败"
+			resp, _ := json.Marshal(res)
+			w.Write(resp)
+			return
+		}
+		title = strings.TrimSpace(r.FormValue("title"))
+		message = strings.TrimSpace(r.FormValue("message"))
+		imageFileValue = strings.TrimSpace(r.FormValue("imageFile"))
+		qrCodeText = strings.TrimSpace(r.FormValue("qrCode"))
+	} else {
+		r.ParseForm()
+		title = strings.TrimSpace(r.FormValue("title"))
+		message = strings.TrimSpace(r.FormValue("message"))
+		imageFileValue = strings.TrimSpace(r.FormValue("imageFile"))
+		qrCodeText = strings.TrimSpace(r.FormValue("qrCode"))
+	}
 
 	msgText := ""
 	if title != "" && message != "" {
@@ -146,24 +184,98 @@ func SendQQMsg(w http.ResponseWriter, r *http.Request) {
 		send.SendPrivatePost(qq, msgText)
 	}
 
-	file, header, err := r.FormFile("imageFile")
-	if err == nil {
-		defer file.Close()
+	sendTempImageFile := func(tmpPath string) {
+		send.SendPrivateImageFile(qq, tmpPath)
+		go func(p string) {
+			time.Sleep(5 * time.Second)
+			os.Remove(p)
+		}(tmpPath)
+	}
 
-		_ = os.MkdirAll("./static/temp", 0755)
-		ext := filepath.Ext(header.Filename)
-		tmpFile, tmpErr := os.CreateTemp("./static/temp", "upload-*"+ext)
-		if tmpErr == nil {
-			tmpPath, _ := filepath.Abs(tmpFile.Name())
-			_, copyErr := io.Copy(tmpFile, file)
-			tmpFile.Close()
-			if copyErr == nil {
-				send.SendPrivateImageFile(qq, tmpPath)
+	sendExistingImageFile := func(absPath string) {
+		send.SendPrivateImageFile(qq, absPath)
+	}
+
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		file, header, err := r.FormFile("imageFile")
+		if err == nil {
+			defer file.Close()
+
+			_ = os.MkdirAll("./static/temp", 0755)
+			ext := filepath.Ext(header.Filename)
+			tmpFile, tmpErr := os.CreateTemp("./static/temp", "upload-*"+ext)
+			if tmpErr == nil {
+				tmpPath, _ := filepath.Abs(tmpFile.Name())
+				_, copyErr := io.Copy(tmpFile, file)
+				tmpFile.Close()
+				if copyErr == nil {
+					sendTempImageFile(tmpPath)
+				} else {
+					os.Remove(tmpPath)
+				}
 			}
-			go func(p string) {
-				time.Sleep(5 * time.Second)
-				os.Remove(p)
-			}(tmpPath)
+		}
+	}
+
+	if imageFileValue != "" {
+		if strings.HasPrefix(imageFileValue, "http://") || strings.HasPrefix(imageFileValue, "https://") {
+			send.SendPrivatePost(qq, `[CQ:image,file=`+imageFileValue+`]`)
+		} else if strings.HasPrefix(imageFileValue, "file:///") {
+			send.SendPrivatePost(qq, `[CQ:image,file=`+imageFileValue+`]`)
+		} else if strings.HasPrefix(imageFileValue, "data:") || strings.HasPrefix(imageFileValue, "base64:") || strings.HasPrefix(imageFileValue, "base64,") || strings.Contains(imageFileValue, "base64,") {
+			b64 := ""
+			ext := ".png"
+			if strings.HasPrefix(imageFileValue, "data:") {
+				idx := strings.Index(imageFileValue, "base64,")
+				if idx >= 0 {
+					meta := imageFileValue[:idx]
+					if strings.Contains(meta, "image/jpeg") {
+						ext = ".jpg"
+					} else if strings.Contains(meta, "image/jpg") {
+						ext = ".jpg"
+					} else if strings.Contains(meta, "image/png") {
+						ext = ".png"
+					} else if strings.Contains(meta, "image/gif") {
+						ext = ".gif"
+					} else if strings.Contains(meta, "image/webp") {
+						ext = ".webp"
+					}
+					b64 = strings.TrimSpace(imageFileValue[idx+7:])
+				}
+			} else if strings.HasPrefix(imageFileValue, "base64,") {
+				b64 = strings.TrimSpace(strings.TrimPrefix(imageFileValue, "base64,"))
+			} else if strings.HasPrefix(imageFileValue, "base64:") {
+				b64 = strings.TrimSpace(strings.TrimPrefix(imageFileValue, "base64:"))
+			} else {
+				idx := strings.Index(imageFileValue, "base64,")
+				if idx >= 0 {
+					b64 = strings.TrimSpace(imageFileValue[idx+7:])
+				}
+			}
+
+			if b64 != "" {
+				imgBytes, decErr := base64.StdEncoding.DecodeString(b64)
+				if decErr == nil {
+					_ = os.MkdirAll("./static/temp", 0755)
+					tmpFile, tmpErr := os.CreateTemp("./static/temp", "uploadb64-*"+ext)
+					if tmpErr == nil {
+						tmpPath, _ := filepath.Abs(tmpFile.Name())
+						_, writeErr := tmpFile.Write(imgBytes)
+						tmpFile.Close()
+						if writeErr == nil {
+							sendTempImageFile(tmpPath)
+						} else {
+							os.Remove(tmpPath)
+						}
+					}
+				}
+			}
+		} else {
+			p := imageFileValue
+			if !filepath.IsAbs(p) {
+				p, _ = filepath.Abs(p)
+			}
+			sendExistingImageFile(p)
 		}
 	}
 
