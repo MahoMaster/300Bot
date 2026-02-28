@@ -5,9 +5,11 @@ import (
 	"300Bot/util"
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var host = "http://" + conf.Config.ApiUrl + ":" + conf.Config.ApiPort
@@ -35,20 +37,26 @@ func SendPrivatePost(qq float64, msg string) {
 	data["user_id"] = qq
 	data["message"] = payload
 	util.HttpPost(host+"/send_private_msg", data)
+
+	if segments, ok := payload.([]map[string]interface{}); ok {
+		scheduleRemoveTempPaths(segments)
+	}
 }
 
 func SendPrivateImageFile(qq float64, absFilePath string) {
+	log.Println("私聊图片" + strconv.FormatFloat(qq, 'f', -1, 64) + ":" + absFilePath)
 	data := make(map[string]interface{})
 	data["user_id"] = qq
 	data["message"] = []map[string]interface{}{
 		{
 			"type": "image",
 			"data": map[string]interface{}{
-				"path": absFilePath,
+				"file": absFilePath,
 			},
 		},
 	}
 	util.HttpPost(host+"/send_private_msg", data)
+	scheduleRemoveTempPath(absFilePath)
 }
 func SendGroupPost(group float64, msg string) {
 	groupstr := strconv.FormatFloat(group, 'f', -1, 64)
@@ -64,6 +72,9 @@ func SendGroupPost(group float64, msg string) {
 	data["message"] = payload
 
 	util.HttpPost(host+"/send_group_msg", data)
+	if segments, ok := payload.([]map[string]interface{}); ok {
+		scheduleRemoveTempPaths(segments)
+	}
 
 }
 
@@ -83,6 +94,9 @@ func SendPrivatePostHasGroup(qq float64, group_id float64, msg string) {
 	data["message"] = payload
 
 	util.HttpPost(host+"/send_private_msg", data)
+	if segments, ok := payload.([]map[string]interface{}); ok {
+		scheduleRemoveTempPaths(segments)
+	}
 }
 func SendGroupPostHasRes(group float64, msg string) []byte {
 	groupstr := strconv.FormatFloat(group, 'f', -1, 64)
@@ -98,7 +112,52 @@ func SendGroupPostHasRes(group float64, msg string) []byte {
 	data["message"] = payload
 
 	res := util.HttpPost(host+"/send_group_msg", data)
+	if segments, ok := payload.([]map[string]interface{}); ok {
+		scheduleRemoveTempPaths(segments)
+	}
 	return res
+}
+
+func scheduleRemoveTempPaths(segments []map[string]interface{}) {
+	for _, seg := range segments {
+		data, ok := seg["data"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		p, ok := data["path"].(string)
+		if !ok || strings.TrimSpace(p) == "" {
+			continue
+		}
+		scheduleRemoveTempPath(p)
+	}
+}
+
+func scheduleRemoveTempPath(p string) {
+	tempDirAbs, err := filepath.Abs("./static/temp")
+	if err != nil {
+		return
+	}
+
+	absPath := p
+	if !filepath.IsAbs(absPath) {
+		absPath, err = filepath.Abs(absPath)
+		if err != nil {
+			return
+		}
+	}
+
+	absPath = filepath.Clean(absPath)
+	tempDirAbs = filepath.Clean(tempDirAbs)
+
+	prefix := tempDirAbs + string(filepath.Separator)
+	if !strings.HasPrefix(strings.ToLower(absPath), strings.ToLower(prefix)) {
+		return
+	}
+
+	go func(path string) {
+		time.Sleep(5 * time.Second)
+		os.Remove(path)
+	}(absPath)
 }
 
 func msgToNapCatSegments(msg string) ([]map[string]interface{}, bool) {
@@ -177,14 +236,14 @@ func msgToNapCatSegments(msg string) ([]map[string]interface{}, bool) {
 				p = strings.TrimPrefix(p, "file://")
 				p = strings.TrimLeft(p, "/")
 				p = filepath.FromSlash(p)
-				imgData["path"] = p
+				imgData["file"] = p
 			} else if filepath.IsAbs(f) {
-				imgData["path"] = f
+				imgData["file"] = f
 			} else {
 				imgData["file"] = f
 			}
 		}
-
+		log.Println(imgData)
 		segments = append(segments, map[string]interface{}{
 			"type": "image",
 			"data": imgData,
