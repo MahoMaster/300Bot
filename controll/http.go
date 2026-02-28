@@ -3,11 +3,18 @@ package controll
 import (
 	"300Bot/function/chatGPT"
 	"300Bot/function/immortal"
+	"300Bot/function/qrcode"
 	"300Bot/send"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
 )
 
 func Test(w http.ResponseWriter, r *http.Request) {
@@ -86,4 +93,95 @@ func JustChat(w http.ResponseWriter, r *http.Request) {
 	resData, _ := json.Marshal(res)
 
 	w.Write(resData)
+}
+
+func SendQQMsg(w http.ResponseWriter, r *http.Request) {
+	var res = make(map[string]interface{})
+	res["code"] = 0
+
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		res["code"] = 1
+		res["msg"] = "只支持POST"
+		resp, _ := json.Marshal(res)
+		w.Write(resp)
+		return
+	}
+
+	qqStr := strings.TrimPrefix(r.URL.Path, "/sendQQMsg/")
+	qqStr = strings.Trim(qqStr, "/")
+	qq, err := strconv.ParseFloat(qqStr, 64)
+	if err != nil {
+		res["code"] = 1
+		res["msg"] = "qq参数错误"
+		resp, _ := json.Marshal(res)
+		w.Write(resp)
+		return
+	}
+
+	parseErr := r.ParseMultipartForm(20 << 20)
+	if parseErr != nil {
+		r.ParseForm()
+	}
+
+	title := strings.TrimSpace(r.FormValue("title"))
+	message := strings.TrimSpace(r.FormValue("message"))
+	qrCodeText := strings.TrimSpace(r.FormValue("qrCode"))
+
+	msgText := ""
+	if title != "" && message != "" {
+		msgText = title + "\n" + message
+	} else if title != "" {
+		msgText = title
+	} else if message != "" {
+		msgText = message
+	}
+
+	if msgText != "" {
+		send.SendPrivatePost(qq, msgText)
+	}
+
+	file, header, err := r.FormFile("imageFile")
+	if err == nil {
+		defer file.Close()
+
+		_ = os.MkdirAll("./static/temp", 0755)
+		ext := filepath.Ext(header.Filename)
+		tmpFile, tmpErr := os.CreateTemp("./static/temp", "upload-*"+ext)
+		if tmpErr == nil {
+			tmpPath, _ := filepath.Abs(tmpFile.Name())
+			_, copyErr := io.Copy(tmpFile, file)
+			tmpFile.Close()
+			if copyErr == nil {
+				send.SendPrivateImageFile(qq, tmpPath)
+			}
+			go func(p string) {
+				time.Sleep(5 * time.Second)
+				os.Remove(p)
+			}(tmpPath)
+		}
+	}
+
+	if qrCodeText != "" {
+		_ = os.MkdirAll("./static/temp", 0755)
+		pngBytes, qrErr := qrcode.EncodeToPNG(qrCodeText, 256)
+		if qrErr == nil {
+			tmpFile, tmpErr := os.CreateTemp("./static/temp", "qrcode-*.png")
+			if tmpErr == nil {
+				tmpPath, _ := filepath.Abs(tmpFile.Name())
+				_, writeErr := tmpFile.Write(pngBytes)
+				tmpFile.Close()
+				if writeErr == nil {
+					send.SendPrivateImageFile(qq, tmpPath)
+				}
+				go func(p string) {
+					time.Sleep(5 * time.Second)
+					os.Remove(p)
+				}(tmpPath)
+			}
+		}
+	}
+
+	resp, _ := json.Marshal(res)
+	w.Write(resp)
 }

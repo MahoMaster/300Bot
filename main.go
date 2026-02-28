@@ -15,6 +15,7 @@ func main() {
 	http.HandleFunc("/lumaReport", controll.LumaReport)
 	http.HandleFunc("/SendMeQQ", controll.SendMeQQ)
 	http.HandleFunc("/justChat", controll.JustChat)
+	http.HandleFunc("/sendQQMsg/", controll.SendQQMsg)
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	if err := http.ListenAndServe(`:`+conf.Config.Port, nil); err != nil {
 		fmt.Println(err)

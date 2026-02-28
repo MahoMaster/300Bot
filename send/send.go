@@ -30,6 +30,10 @@ func SendPrivatePost(qq float64, msg string) {
 	data["message"] = msg
 	util.HttpPost(host+"/send_private_msg", data)
 }
+
+func SendPrivateImageFile(qq float64, absFilePath string) {
+	SendPrivatePost(qq, `[CQ:image,file=file:///`+absFilePath+`]`)
+}
 func SendGroupPost(group float64, msg string) {
 	groupstr := strconv.FormatFloat(group, 'f', -1, 64)
 	log.Println("发送消息到群" + groupstr + ":" + msg)
