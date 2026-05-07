@@ -14,6 +14,7 @@
   "heroDatabaseName": "300heros",
   "immortalbaseName": "luma_immortal",
   "chatGPTkey": "your_chatgpt_key",
+  "dashScopeKey": "your_dashscope_key",
   "wetherApiCode": "your_weather_api_code",
   "VPN": "",
   "moneyList": []

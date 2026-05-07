@@ -7,7 +7,6 @@ import (
 	"300Bot/function/chatGPT"
 	"300Bot/function/emotion"
 	"300Bot/function/heros"
-	"300Bot/function/img"
 	"300Bot/function/music"
 	"300Bot/function/wether"
 	"300Bot/send"
@@ -23,7 +22,7 @@ func checkKeywords(keyword string, msgStr string, msg map[string]interface{}) bo
 		send.SendGroupPost(msg["group_id"].(float64), "http://gogs.yugi.cc/Maho/300Bot/src/master/doc")
 		return true
 	case "来张涩图", "色图", "来张色图", "涩图", "整点二次元":
-		img.SendOneImg(msg)
+		chatGPT.AddPseudoSexyImagePlan(msgStr, msg)
 		return true
 	case "不够色":
 		send.SendGroupPost(msg["group_id"].(float64), "钱都不给还想看好康的？[CQ:face,id=176]")

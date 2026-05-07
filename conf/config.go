@@ -32,6 +32,7 @@ type BaseConfig struct {
 	ImmortalbaseName string `json:"immortalbaseName"`
 
 	ChatGPTKey    string `json:"chatGPTkey"`
+	DashScopeKey  string `json:"dashScopeKey"`
 	WetherApiCode string `json:"wetherApiCode"`
 	VPN           string `json:"VPN"`
 
