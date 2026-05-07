@@ -100,7 +100,7 @@ func createPseudoSexyImage(msgStr string, qq float64) (string, string, string) {
 			},
 		},
 		Parameters: dashScopeImageParameters{
-			NegativePrompt:     "低分辨率，低画质，肢体畸形，手指畸形，裸露，乳头暴露，生殖器暴露，性行为，未成年人，强性暗示，过度光滑，蜡像感，文字模糊，扭曲，构图混乱",
+			NegativePrompt:     "低分辨率，低画质，肢体畸形，手指畸形，性行为，未成年人，过度光滑，蜡像感，文字模糊，扭曲，构图混乱",
 			PromptExtend:       true,
 			Watermark:          false,
 			Size:               "1024*1024",
@@ -156,7 +156,7 @@ func createPseudoSexyImage(msgStr string, qq float64) (string, string, string) {
 }
 
 func buildPseudoSexyPrompt(msgStr string) string {
-	basePrompt := "冬日都市街景中的二次元时尚写真，女性成年角色，修身穿搭、露肩或露背、氛围感姿态，电影感光影，细腻皮肤质感，真实材质，构图干净，整体中度性感但无裸露、无性暗示。"
+	basePrompt := "二次元动漫少女角色，高度性感。"
 	extraPrompt := extractPromptExtra(msgStr)
 	if extraPrompt == "" {
 		return basePrompt
