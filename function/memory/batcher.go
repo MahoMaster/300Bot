@@ -162,7 +162,14 @@ func buildSummaryTranscript(turns []model.MemoryRawTurn) ([]model.MemoryRawTurn,
 		selected = append(selected, turn)
 		charCount += turnChars
 		if text := strings.TrimSpace(turn.InputText); text != "" {
-			lines = append(lines, "USER: "+text)
+			prefix := "USER"
+			if strings.EqualFold(strings.TrimSpace(turn.Scope), "group") {
+				uid := strings.TrimSpace(turn.UserId)
+				if uid != "" {
+					prefix = "USER[" + uid + "]"
+				}
+			}
+			lines = append(lines, prefix+": "+text)
 		}
 		if text := strings.TrimSpace(turn.ReplyText); text != "" {
 			lines = append(lines, "BOT: "+text)
@@ -183,7 +190,13 @@ func buildMemorySummary(scope string, turns []model.MemoryRawTurn, result memory
 	}
 	if len(turns) > 0 {
 		lastTurn := turns[len(turns)-1]
-		summary.UserId = strings.TrimSpace(lastTurn.UserId)
+		normalizedScope := strings.ToLower(strings.TrimSpace(scope))
+		if normalizedScope == "user" {
+			summary.UserId = strings.TrimSpace(lastTurn.UserId)
+		} else {
+			// 群维度总结不绑定到单一 user_id，避免误导“归属到某个用户”。
+			summary.UserId = ""
+		}
 		summary.GroupId = strings.TrimSpace(lastTurn.GroupId)
 		summary.SessionId = strings.TrimSpace(lastTurn.SessionId)
 		summary.MessageId = strings.TrimSpace(lastTurn.MessageId)
