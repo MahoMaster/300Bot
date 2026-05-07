@@ -1,0 +1,19 @@
+{
+  "memoryEnabled": true,
+  "memoryRawStoreEnabled": true,
+  "memoryBatchEnabled": true,
+  "memoryBatchMaxTurns": 24,
+  "memoryBatchMaxChars": 4000,
+  "memoryBatchMaxWaitSec": 900,
+  "memoryAsyncQueueSize": 2000,
+  "memoryWorkerCount": 4,
+  "memoryRetryTimes": 3,
+  "memoryMinImportance": 3,
+  "memoryDedupWindowSec": 86400,
+  "memoryFallbackToMysql": true,
+  "embeddingProvider": "openai_compatible",
+  "embeddingApiKey": "your_embedding_api_key",
+  "embeddingModel": "text-embedding-3-small",
+  "embeddingApiUrl": "https://api.openai.com/v1/embeddings",
+  "embeddingDimension": 1536
+}

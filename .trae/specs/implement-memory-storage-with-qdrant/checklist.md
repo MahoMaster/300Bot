@@ -1,10 +1,10 @@
-- [ ] 支持加载 `conf.local.json`、`memory.local.json`、`qdrant.local.json` 并完成启动校验
-- [ ] 私聊消息处理后可写入 `scope=user` 原始回合记录
-- [ ] 群聊消息处理后可写入 `scope=group` 原始回合记录
-- [ ] `AddPlan/AddPlanPrivate` 成功发送后可补充输出侧回合记录
-- [ ] 达到阈值后可触发分组批量总结（用户维度/群维度）
-- [ ] 总结结果完成重要度与置信度过滤
-- [ ] 通过 embedding 生成向量并写入 Qdrant 用户集合
-- [ ] 通过 embedding 生成向量并写入 Qdrant 群集合
-- [ ] Qdrant 不可用时系统按降级策略运行且不阻塞主回复
-- [ ] 完成基础可观测项：队列长度、成功数、失败数、重试次数
+- [x] 支持加载 `conf.local.json`、`memory.local.json`、`qdrant.local.json` 并完成启动校验
+- [x] 私聊消息处理后可写入 `scope=user` 原始回合记录
+- [x] 群聊消息处理后可写入 `scope=group` 原始回合记录
+- [x] `AddPlan/AddPlanPrivate` 成功发送后可补充输出侧回合记录
+- [x] 达到阈值后可触发分组批量总结（用户维度/群维度）
+- [x] 总结结果完成重要度与置信度过滤
+- [x] 通过 embedding 生成向量并写入 Qdrant 用户集合
+- [x] 通过 embedding 生成向量并写入 Qdrant 群集合
+- [x] Qdrant 不可用时系统按降级策略运行且不阻塞主回复
+- [x] 完成基础可观测项：队列长度、成功数、失败数、重试次数

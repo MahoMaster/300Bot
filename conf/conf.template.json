@@ -1,0 +1,20 @@
+{
+  "name": "300Bot",
+  "port": "9999",
+  "apiPort": "6097",
+  "apiUrl": "127.0.0.1",
+  "host": "",
+  "botQQ": "2466001518",
+  "botName": "叁柏",
+  "manager": "675559614",
+  "databaseHost": "127.0.0.1:3306",
+  "databaseUser": "root",
+  "databasePassword": "your_password",
+  "botDatabaseName": "chat_bot",
+  "heroDatabaseName": "300heros",
+  "immortalbaseName": "luma_immortal",
+  "chatGPTkey": "your_chatgpt_key",
+  "wetherApiCode": "your_weather_api_code",
+  "VPN": "",
+  "moneyList": []
+}

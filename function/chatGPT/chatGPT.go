@@ -2,6 +2,7 @@ package chatGPT
 
 import (
 	"300Bot/conf"
+	memoryCollector "300Bot/function/memory"
 	"300Bot/model"
 	"300Bot/send"
 	"300Bot/util"
@@ -375,6 +376,10 @@ func getUserGptSetting(msg map[string]interface{}, typeInt int) string {
 	return session
 }
 
+func ResolveSession(msg map[string]interface{}, typeInt int) string {
+	return getUserGptSetting(msg, typeInt)
+}
+
 var g = goroutineNew(1)
 
 func AddPlan(msgStr string, msg map[string]interface{}) {
@@ -392,8 +397,9 @@ func AddPlan(msgStr string, msg map[string]interface{}) {
 		res, err := AskForChatGPT(msgStr, msg["user_id"].(float64), remark, session)
 
 		if err == nil && res.Choices[0].Message.Content != "" {
-
-			send.SendGroupPost(msg["group_id"].(float64), strings.TrimSpace(res.Choices[0].Message.Content))
+			replyText := strings.TrimSpace(res.Choices[0].Message.Content)
+			send.SendGroupPost(msg["group_id"].(float64), replyText)
+			memoryCollector.CollectOutput("group", "group", session, msg, replyText)
 			// send.SendTTS(msg["group_id"].(float64), strings.TrimSpace(res.Choices[0].Message.Content))
 			model.LogUserUseTokens(msg["user_id"].(float64), res.Usage.TotalTokens, res.ID)
 		}
@@ -414,7 +420,9 @@ func AddPlanPrivate(msgStr string, msg map[string]interface{}) {
 		res, err := AskForChatGPT(msgStr, msg["user_id"].(float64), "", session)
 
 		if err == nil && res.Choices[0].Message.Content != "" {
-			send.SendPrivatePost(msg["user_id"].(float64), strings.TrimSpace(res.Choices[0].Message.Content))
+			replyText := strings.TrimSpace(res.Choices[0].Message.Content)
+			send.SendPrivatePost(msg["user_id"].(float64), replyText)
+			memoryCollector.CollectOutput("user", "private", session, msg, replyText)
 			// send.SendTTS(msg["group_id"].(float64), strings.TrimSpace(res.Choices[0].Message.Content))
 			model.LogUserUseTokens(msg["user_id"].(float64), res.Usage.TotalTokens, res.ID)
 		}

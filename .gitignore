@@ -1,4 +1,6 @@
 logs/
 conf/QQbot/
 conf/conf.local.json
+conf/memory.local.json
+conf/qdrant.local.json
 300Bot.exe

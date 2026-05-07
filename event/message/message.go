@@ -6,6 +6,7 @@ import (
 	"300Bot/function/chatGPT"
 	"300Bot/function/emotion"
 	"300Bot/function/immortal"
+	memoryCollector "300Bot/function/memory"
 	"300Bot/function/repeat"
 	"300Bot/store"
 	"log"
@@ -33,6 +34,11 @@ func CheckType(msg map[string]interface{}) {
 // 私聊消息
 func private(msg map[string]interface{}) {
 	log.Println("私聊消息", msg["raw_message"])
+	session := chatGPT.ResolveSession(msg, 1)
+	if session == "" {
+		session = strconv.FormatFloat(msg["user_id"].(float64), 'f', -1, 64)
+	}
+	memoryCollector.CollectInput("user", "private", session, msg)
 	// send.SendPrivate(msg["user_id"].(float64), `[CQ:image,file=0c9df9e9aaa98350bb28c1ca2661c5e0.image]`)
 	// go func() {
 	// time.Sleep(1 * time.Second)
@@ -75,6 +81,11 @@ func group(msg map[string]interface{}) {
 	self_id := msg["self_id"].(float64)
 
 	msgStr := msg["raw_message"].(string)
+	session := chatGPT.ResolveSession(msg, 0)
+	if session == "" {
+		session = strconv.FormatFloat(msg["group_id"].(float64), 'f', -1, 64)
+	}
+	memoryCollector.CollectInput("group", "group", session, msg)
 
 	//查询#号，接入修仙游戏
 	msgStr = strings.TrimSpace(msgStr)
