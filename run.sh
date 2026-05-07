@@ -1,22 +1,27 @@
-project_path=$(cd `dirname $0`;pwd)
-project_name="${project_path##*/}"
-go_id=`ps -ef|grep "./$project_name" |grep -v "grep" | awk '{print $2}'` 
-if [ -z "$go_id" ];
-then
- echo "[go pid not found]"
-else
- kill -9 $go_id
- echo "killed $go_id"
-fi
+#!/bin/bash
+
+set -e
+
+BASE_DIR=$(cd "$(dirname "$0")"; pwd)
+PROJECT_NAME=$(basename "$BASE_DIR")
+SERVICE_NAME="${PROJECT_NAME}.service"
+
+cd $BASE_DIR
 
 echo "clean old file"
-rm -rf $project_name
+rm -rf $PROJECT_NAME
+
 if [ -f build ]; then
- echo "strat new process"
- cp ./build ./$project_name
- chmod -R 777 $project_name
- nowDate=$(date +%F)
- nohup ./$project_name 2>&1 | cronolog ./logs/%Y-%m-%d.log &
+    echo "start new process"
+
+    cp ./build ./$PROJECT_NAME
+    chmod 777 $PROJECT_NAME
+
+    echo "restart service"
+    systemctl restart ${SERVICE_NAME}
+
+    echo "service restarted"
 else
- echo "app file not found,qiut"
+    echo "build file not found"
+    exit 1
 fi
