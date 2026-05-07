@@ -68,18 +68,27 @@ func AddPseudoSexyImagePlan(msgStr string, msg map[string]interface{}) {
 
 		imageURL, requestID, errMsg := createPseudoSexyImage(msgStr, msg["user_id"].(float64))
 		if errMsg != "" {
-			reply := "生成失败，请稍后重试"
+			reply := "生成失败，你踏马违规了知道吗"
 			if requestID != "" {
 				reply = reply + "（request_id: " + requestID + "）"
 			}
 			send.SendGroupPost(msg["group_id"].(float64), reply)
 			return
 		}
-
+		// log.Printf("imageURL: %s", imageURL)
+		// log.Printf("requestID: %s", requestID)
+		// log.Printf("errMsg: %s", errMsg)
 		send.SendGroupPost(msg["group_id"].(float64), `[CQ:image,file=`+imageURL+`]`)
 	})
 }
 
+//	func init() {
+//		var a float64 = 123456
+//		AddPseudoSexyImagePlan("来张涩图 初音", map[string]interface{}{
+//			"user_id":  a,
+//			"group_id": a,
+//		})
+//	}
 func createPseudoSexyImage(msgStr string, qq float64) (string, string, string) {
 	apiKey := strings.TrimSpace(conf.Config.DashScopeKey)
 	if apiKey == "" {
@@ -156,7 +165,43 @@ func createPseudoSexyImage(msgStr string, qq float64) (string, string, string) {
 }
 
 func buildPseudoSexyPrompt(msgStr string) string {
-	basePrompt := "二次元动漫少女角色，高度性感。"
+	basePrompt := `
+杰作，最佳画质，超精细，
+
+纯二次元，
+平涂风，
+日式萌系，
+非写实，
+手绘风，
+日系动漫风，anime style，
+二次元插画，anime illustration，
+赛璐璐上色，cel shading，
+干净线稿，clean lineart
+
+动漫女性，
+身材纤细，
+柔软感，
+性感脸，
+
+看向镜头，
+诱人的表情，
+微张嘴，
+
+过膝袜，
+柔软布料，
+清爽的服饰，
+strategically covered,
+barely covered,
+covered cleavage,
+
+低角度视角，
+近距离构图，
+动态透视，
+轻微虚化，
+
+景深，
+高饱和配色，
+`
 	extraPrompt := extractPromptExtra(msgStr)
 	if extraPrompt == "" {
 		return basePrompt
