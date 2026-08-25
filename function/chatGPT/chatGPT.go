@@ -6,10 +6,13 @@ import (
 	"300Bot/model"
 	"300Bot/send"
 	"300Bot/util"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -31,8 +34,9 @@ var sessions = make(map[string]Session, 0)
 var gptSetting = make(map[string]model.UserGPTSetting, 0)
 
 const memory = 3000
-const is_limit_memory = false //设置为true上面的memory才会生效
-const max_memory = 32000
+const is_limit_memory = false           //设置为true上面的memory才会生效
+const max_input_tokens = 120000         //输入token上限
+const max_memory = max_input_tokens * 3 //按1 token约等于3字节粗估，中文场景实际token数会略低于上限
 
 func init() {
 	initSessions()
@@ -49,10 +53,40 @@ func init() {
 	// 	Transport: transport,
 	// }
 	config.BaseURL = conf.Config.ChatGPTBaseUrl
+	config.HTTPClient = &http.Client{Transport: &noThinkingTransport{base: http.DefaultTransport}}
 	client = openai.NewClientWithConfig(config)
 
 	// m, _ := client.ListModels(context.Background())
 	// fmt.Println(m)
+}
+
+// noThinkingTransport 在chat/completions请求体中注入enable_thinking:false，关闭模型思考
+type noThinkingTransport struct {
+	base http.RoundTripper
+}
+
+func (t *noThinkingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.Body == nil || !strings.Contains(req.URL.Path, "chat/completions") {
+		return t.base.RoundTrip(req)
+	}
+	body, err := io.ReadAll(req.Body)
+	req.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+	var data map[string]any
+	if err := json.Unmarshal(body, &data); err != nil {
+		return nil, err
+	}
+	data["enable_thinking"] = false
+	newBody, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	req.Body = io.NopCloser(bytes.NewReader(newBody))
+	req.ContentLength = int64(len(newBody))
+	req.Header.Set("Content-Length", strconv.Itoa(len(newBody)))
+	return t.base.RoundTrip(req)
 }
 
 func initSessions() {
