@@ -48,7 +48,7 @@ func init() {
 	// config.HTTPClient = &http.Client{
 	// 	Transport: transport,
 	// }
-	config.BaseURL = "https://api.longcat.chat/openai"
+	config.BaseURL = conf.Config.ChatGPTBaseUrl
 	client = openai.NewClientWithConfig(config)
 
 	// m, _ := client.ListModels(context.Background())
@@ -133,7 +133,7 @@ func AskForChatGPT(msg string, qq float64, remark string, session string) (opena
 
 	qqstr := strconv.FormatFloat(qq, 'f', -1, 64)
 
-	model := "LongCat-Flash-Chat"
+	model := "qwen3.5-plus-2026-04-20"
 	// if qqstr == "675559614" {
 	// 	model = "deepseek-r1"
 	// }

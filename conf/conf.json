@@ -17,6 +17,7 @@
 	"heroDatabaseName": "300heros",
 	"immortalbaseName": "luma_immortal",
 	"chatGPTkey": "",
+	"chatGPTBaseUrl": "",
 	"VPN": "http://127.0.0.1:7078",
 	"wetherApiCode": "",
 	"moneyList": []

@@ -31,7 +31,9 @@ type BaseConfig struct {
 	HeroDatabaseName string `json:"heroDatabaseName"`
 	ImmortalbaseName string `json:"immortalbaseName"`
 
-	ChatGPTKey    string `json:"chatGPTkey"`
+	ChatGPTKey     string `json:"chatGPTkey"`
+	ChatGPTBaseUrl string `json:"chatGPTbaseUrl"`
+
 	DashScopeKey  string `json:"dashScopeKey"`
 	WetherApiCode string `json:"wetherApiCode"`
 	VPN           string `json:"VPN"`

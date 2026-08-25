@@ -15,7 +15,7 @@ import (
 )
 
 const memorySummaryConfidenceThreshold = 0.65
-const memorySummaryModelName = "LongCat-Flash-Chat"
+const memorySummaryModelName = "qwen3.5-plus-2026-04-20"
 
 type memorySummaryResult struct {
 	Summary     string   `json:"summary"`
@@ -254,7 +254,7 @@ func getMemorySummaryClient() (*openai.Client, error) {
 			return
 		}
 		cfg := openai.DefaultConfig(conf.Config.ChatGPTKey)
-		cfg.BaseURL = "https://api.longcat.chat/openai"
+		cfg.BaseURL = conf.Config.ChatGPTBaseUrl
 		memorySummaryClient = openai.NewClientWithConfig(cfg)
 	})
 	if memorySummaryClientErr != nil {
