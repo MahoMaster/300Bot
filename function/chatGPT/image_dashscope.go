@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const dashScopeImageURL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation"
+const dashScopeImageURL = "https://ws-6esmsaoyn605x2mf.cn-beijing.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation"
 
 var pseudoSexyKeywords = []string{"来张涩图", "来张色图", "整点二次元", "涩图", "色图"}
 
