@@ -25,5 +25,7 @@
 	"ctxWindowMaxChars": 4000,
 	"ctxIdleMinutes": 30,
 	"ctxBackfillCount": 20,
+	"chatJsonMode": true,
+	"chatMemoryInlineEnabled": true,
 	"moneyList": []
 }

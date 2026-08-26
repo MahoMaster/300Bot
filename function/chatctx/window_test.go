@@ -1,6 +1,7 @@
 package chatctx
 
 import (
+	"encoding/json"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -177,6 +178,75 @@ func TestSenderNickname(t *testing.T) {
 		t.Fatalf("无 sender 应返回空, got=%s", got)
 	}
 }
+
+func TestSnapshotJSONStructure(t *testing.T) {
+	resetForTest()
+	now := time.Now().Unix()
+	AppendGroup("100", "m1", "200", "小明", "你好", now)
+	AppendBotReply("100", "我在")
+	body := SnapshotJSON("100")
+	if body == "" {
+		t.Fatal("快照 JSON 为空")
+	}
+	var items []struct {
+		QQ       string `json:"qq"`
+		Nickname string `json:"nickname"`
+		Text     string `json:"text"`
+		Time     int64  `json:"time"`
+		Bot      bool   `json:"bot"`
+	}
+	if err := json.Unmarshal([]byte(body), &items); err != nil {
+		t.Fatalf("快照 JSON 解析失败: %v body=%s", err, body)
+	}
+	if len(items) != 2 {
+		t.Fatalf("条目数 = %d, 期望 2", len(items))
+	}
+	if items[0].QQ != "200" || items[0].Nickname != "小明" || items[0].Text != "你好" || items[0].Bot {
+		t.Fatalf("群友条目字段错误: %+v", items[0])
+	}
+	if items[0].Time != now {
+		t.Fatalf("时间戳错误: %d, 期望 %d", items[0].Time, now)
+	}
+	if !items[1].Bot || items[1].Text != "我在" || items[1].QQ != "10001" {
+		t.Fatalf("机器人条目字段错误: %+v", items[1])
+	}
+}
+
+func TestSnapshotJSONExcludeAndEmpty(t *testing.T) {
+	resetForTest()
+	if got := SnapshotJSON("100"); got != "" {
+		t.Fatalf("空窗口应返回空串, got=%s", got)
+	}
+	now := time.Now().Unix()
+	AppendGroup("100", "m1", "200", "昵称", "闲聊内容", now)
+	AppendGroup("100", "m2", "200", "昵称", "触发内容", now+1)
+	body := SnapshotJSON("100", "m2")
+	if strings.Contains(body, "触发内容") {
+		t.Fatalf("排除项未生效: %s", body)
+	}
+	if !strings.Contains(body, "闲聊内容") {
+		t.Fatalf("其余消息丢失: %s", body)
+	}
+}
+
+func TestSnapshotJSONCharBudget(t *testing.T) {
+	resetForTest()
+	cfg.maxChars = 60
+	now := time.Now().Unix()
+	for i := 1; i <= 5; i++ {
+		AppendGroup("100", idStr(i), "200", "昵称", strings.Repeat("字", 30), now+int64(i))
+	}
+	body := SnapshotJSON("100")
+	var items []map[string]interface{}
+	if err := json.Unmarshal([]byte(body), &items); err != nil {
+		t.Fatalf("快照 JSON 解析失败: %v", err)
+	}
+	// 与 SnapshotRendered 相同预算规则：60 rune 放不下 5 条长消息
+	if len(items) >= 5 || len(items) == 0 {
+		t.Fatalf("字符预算未按渲染长度截断, 条数 = %d", len(items))
+	}
+}
+
 
 func idStr(i int) string {
 	return strconv.Itoa(i)

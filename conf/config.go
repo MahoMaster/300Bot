@@ -50,6 +50,10 @@ type BaseConfig struct {
 	CtxIdleMinutes    int `json:"ctxIdleMinutes"`    // 会话空闲超时分钟数，默认 30
 	CtxBackfillCount  int `json:"ctxBackfillCount"`  // NapCat 历史补拉条数，默认 20
 
+	// LLM 交互 JSON 化（阶段四）开关；bool 缺失即 false，需在 json 中显式写 true 启用
+	ChatJsonMode            bool `json:"chatJsonMode"`            // 请求 response_format: json_object
+	ChatMemoryInlineEnabled bool `json:"chatMemoryInlineEnabled"` // 回复内联记忆候选入队
+
 	MoneyList []string `json:"moneyList"` //赞助列表
 }
 

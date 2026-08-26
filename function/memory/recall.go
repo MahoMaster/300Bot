@@ -10,28 +10,47 @@ import (
 	"time"
 )
 
-// Recall 召回句柄：触发判定时刻创建并异步执行，worker 轮到执行时通过 Result 取结果。
+// recallResult 召回产出：渲染文本（注入 system 段）+ 合并后命中（阶段四 JSON 化输入）
+type recallResult struct {
+	text string
+	hits []recall.MemoryHit
+}
+
+// Recall 召回句柄：触发判定时刻创建并异步执行，worker 轮到执行时通过 Result/Hits 取结果。
 // 预算在异步 goroutine 内强制执行，Result 永不阻塞——预算耗尽/尚未完成即降级为无记忆继续。
 type Recall struct {
-	ch chan string
+	ch   chan recallResult
+	once sync.Once
+	res  recallResult
+}
+
+// get 单次消费 channel 并缓存，保证 Result 与 Hits 取到同一份结果
+func (r *Recall) get() recallResult {
+	if r == nil {
+		return recallResult{}
+	}
+	r.once.Do(func() {
+		select {
+		case r.res = <-r.ch:
+		default:
+		}
+	})
+	return r.res
 }
 
 // Result 返回召回渲染文本；未完成或已放弃时立即返回空串
 func (r *Recall) Result() string {
-	if r == nil {
-		return ""
-	}
-	select {
-	case text := <-r.ch:
-		return text
-	default:
-		return ""
-	}
+	return r.get().text
+}
+
+// Hits 返回合并去重后的召回命中（已过滤阈值），用于结构化 JSON 注入；未完成时返回 nil
+func (r *Recall) Hits() []recall.MemoryHit {
+	return r.get().hits
 }
 
 func emptyRecall() *Recall {
-	r := &Recall{ch: make(chan string, 1)}
-	r.ch <- ""
+	r := &Recall{ch: make(chan recallResult, 1)}
+	r.ch <- recallResult{}
 	return r
 }
 
@@ -52,7 +71,7 @@ func StartRecall(scope string, userId string, groupId string, query string) *Rec
 		log.Printf("memory recall skipped: qdrant 不可用 err=%v", err)
 		return emptyRecall()
 	}
-	handle := &Recall{ch: make(chan string, 1)}
+	handle := &Recall{ch: make(chan recallResult, 1)}
 	budget := time.Duration(conf.Memory.MemoryRecallBudgetMs) * time.Millisecond
 	go runRecall(handle, repo, scope, userId, groupId, query, budget)
 	return handle
@@ -63,7 +82,7 @@ func runRecall(handle *Recall, repo *QdrantRepository, scope, userId, groupId, q
 		if info := recover(); info != nil {
 			log.Printf("memory recall panic scope=%s info=%v", scope, info)
 			select {
-			case handle.ch <- "":
+			case handle.ch <- recallResult{}:
 			default:
 			}
 		}
@@ -76,7 +95,7 @@ func runRecall(handle *Recall, repo *QdrantRepository, scope, userId, groupId, q
 	vector, err := repo.EmbedQuery(query)
 	if err != nil || ctx.Err() != nil {
 		log.Printf("memory recall degraded scope=%s stage=embed err=%v", scope, err)
-		handle.ch <- ""
+		handle.ch <- recallResult{}
 		return
 	}
 
@@ -114,7 +133,7 @@ func runRecall(handle *Recall, repo *QdrantRepository, scope, userId, groupId, q
 
 	hits := recall.MergeHits(userHits, groupHits, topK, conf.Memory.MemoryRecallMinScore)
 	text := recall.RenderText(hits, conf.Memory.MemoryRecallMaxChars)
-	handle.ch <- text
+	handle.ch <- recallResult{text: text, hits: hits}
 
 	topScore := 0.0
 	if len(hits) > 0 {

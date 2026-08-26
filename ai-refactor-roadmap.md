@@ -28,7 +28,7 @@
 | P8 | 批量总结时间阈值只在来新消息时被动触发，无定时扫描（`ListPendingMemoryOwnerStats` 无调用者） | 阶段五解决 |
 | P9 | `MemoryFallbackToMysql` 只有日志没有实现 | 阶段五解决 |
 | P10 | 总结失败（status=failed）的回合无补偿机制 | 阶段五随定时扫描解决 |
-| P11 | 用户画像只有私聊来源，群内用户事实全部归到 group 维度 | 阶段二/三解决（记忆锚定 QQ 号） |
+| P11 | 用户画像只有私聊来源，群内用户事实全部归到 group 维度 | 阶段二/三已解决（记忆锚定 QQ 号） |
 | P12 | raw turns 缺昵称，总结素材只有 `USER[QQ号]` | 阶段二解决（昵称 + QQ 号双身份） |
 | P13 | CollectInput 为消息热路径同步 DB insert | 阶段五优化（异步批量） |
 | P14 | `memory_raw_turns` 无清理策略；dedup_window 未真正生效 | 阶段五解决 |
@@ -39,11 +39,11 @@
 ## 3. 五阶段总览
 
 ```text
-阶段一 并发模型重构（地基）          —— 本次实施
-阶段二 上下文重建（全量群聊 + NapCat 补拉 + 双身份）
-阶段三 记忆召回注入（Qdrant search + 超时预算 + 与排队重叠）
-阶段四 LLM 交互 JSON 化（结构化输入/输出协议）
-阶段五 收尾（定时扫描 / fallback / 清理 / 配置化 / 日志）
+阶段一 并发模型重构（地基）          —— 已实施
+阶段二 上下文重建（全量群聊 + NapCat 补拉 + 双身份） —— 已实施
+阶段三 记忆召回注入（Qdrant search + 超时预算 + 与排队重叠） —— 已实施
+阶段四 LLM 交互 JSON 化（结构化输入/输出协议） —— 已实施（本次）
+阶段五 收尾（定时扫描 / fallback / 清理 / 配置化 / 日志） —— 待实施
 ```
 
 ## 4. 阶段一：并发模型重构（已实施）
@@ -68,7 +68,9 @@
 - 删除旧的 `Glimit`（`function/chatGPT/goroutine.go`）。
 - `conf/config.go` 新增可选项：`chatConcurrency`(默认3)、`chatQueueDepth`(默认8)、`bgConcurrency`(默认2)、`llmTimeoutSec`(默认120)。
 
-## 5. 阶段二：上下文重建
+## 5. 阶段二：上下文重建（已实施）
+
+> 落点：`function/chatctx/window.go` 滑动窗口（`chatctx/backfill` NapCat 补拉子包）、`send/napcat.go` 只读 API 封装、`memory_raw_turns` 增 nickname 列、`AskForChatGPT` ambient 注入与双身份前缀。
 
 ### 5.1 数据源设计（推为主、拉为辅）
 
@@ -100,7 +102,9 @@
 
 `AskForChatGPT` 组装请求时，将窗口内非触发消息以"群友发言记录"形式注入（压缩为 system 段），保留 30 分钟超时语义但作用于窗口时间戳。
 
-## 6. 阶段三：记忆召回注入
+## 6. 阶段三：记忆召回注入（已实施）
+
+> 落点：`function/memory/qdrant_repo.go`（Search/EmbedQuery/doJSONCtx）、`function/memory/recall.go` 触发时刻召回编排（2000ms 预算 + 两路并发 + 部分降级 + 可观测日志）、`function/memory/recall` 纯函数子包、`memory.local.json` 召回配置项。
 
 ### 6.1 检索实现
 
@@ -122,7 +126,9 @@
 
 每次召回打日志：命中条数、相似度、实际注入内容摘要，用于观察记忆质量与调参。
 
-## 7. 阶段四：LLM 交互 JSON 化
+## 7. 阶段四：LLM 交互 JSON 化（已实施）
+
+> 落点：`AskForChatGPT` 输入组装为结构化 JSON system 段（`chatctx.SnapshotJSON` + 召回 hits + 会话历史）；输出固定 schema 由 `function/memory/inline` 子包解析（失败兜底整段当 reply）；`chatJsonMode`/`chatMemoryInlineEnabled` 开关入 `conf.local.json`；回复 memory 候选经 `EnqueueInlineCandidates` 直入记忆队列。
 
 ### 7.1 输入侧
 

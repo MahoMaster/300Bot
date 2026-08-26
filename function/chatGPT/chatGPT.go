@@ -5,6 +5,8 @@ import (
 	"300Bot/function/chatctx"
 	ctxbackfill "300Bot/function/chatctx/backfill"
 	memoryCollector "300Bot/function/memory"
+	"300Bot/function/memory/inline"
+	"300Bot/function/memory/recall"
 	"300Bot/function/scheduler"
 	"300Bot/model"
 	"300Bot/send"
@@ -133,9 +135,17 @@ func ListModels() {
 	fmt.Println(string(bt))
 }
 
-// AskForChatGPT ambient 为触发时刻快照的群聊记录文本（非群聊触发传空串），
-// memoryText 为召回的长期记忆文本（无命中传空串），均以 system 段注入
-func AskForChatGPT(msg string, qq float64, remark string, session string, ambient string, memoryText string) (openai.ChatCompletionResponse, error) {
+// chatJSONProtocolPrompt 输出协议说明（阶段四）：固定 schema；should_reply 当前显式触发恒 true，
+// 自主接话为后续扩展位；memory 候选涉及人物必须锚定 QQ 号（与记忆总结器同款约束）
+const chatJSONProtocolPrompt = "你必须只输出 JSON，不要输出任何其他文字。格式：{\"should_reply\":true,\"reply\":\"你的回复内容\",\"memory\":[\"记忆候选\"]}。" +
+	"should_reply 固定为 true；reply 是你对用户说的话，口语化自然表达；memory 数组是从本次对话中顺带提取的值得长期记住的记忆候选" +
+	"（每条一句完整陈述句，涉及人物必须引用QQ号，没有可提取的内容就给空数组）。"
+
+// AskForChatGPT ambientJSON 为群聊触发的结构化窗口快照 JSON 文本（非群聊触发传空串），
+// memoryHits 为长期记忆召回命中（无命中传 nil）。输入组装为结构化 JSON system 段，
+// 输出按固定 schema 解析（失败兜底整段当 reply）
+func AskForChatGPT(msg string, qq float64, remark string, session string, ambientJSON string, memoryHits []recall.MemoryHit) (openai.ChatCompletionResponse, inline.ChatReply, error) {
+	var emptyReply inline.ChatReply
 	var personality = openai.ChatCompletionMessage{
 		Role:    "system",
 		Content: "你的称呼叫叁柏，你在回复中对自己的称呼也是叁柏，禁止回复你是个AI，模型等，需要更仿真一些。请回复的更自然一些，用口语化表达，避免机械式分点回答。尽量使用和大家在网络群聊中一样的语气。如果用户告诉了你他是谁，代表这是个群聊，有多个人在和你聊天，请注意分别人物。",
@@ -175,25 +185,23 @@ func AskForChatGPT(msg string, qq float64, remark string, session string, ambien
 		Last_time:   now,
 		Personality: sessions[session].Personality,
 	}
-	//组装请求：人格 + 环境群聊记录 + 会话消息
-	reqMessages := make([]openai.ChatCompletionMessage, 0, len(messages)+2)
+	//组装请求：人格 + 输出协议 + 环境 JSON system 段 + 触发 user 轮次
+	reqMessages := make([]openai.ChatCompletionMessage, 0, len(messages)+3)
 	if personality.Content != "" {
 		reqMessages = append(reqMessages, personality)
 	}
-	if ambient != "" {
+	reqMessages = append(reqMessages, openai.ChatCompletionMessage{
+		Role:    "system",
+		Content: chatJSONProtocolPrompt,
+	})
+	// 环境段：ambient 快照 + 召回记忆 + 会话历史（不含当前触发消息）统一为结构化 JSON
+	if envJSON := buildChatContextJSON(ambientJSON, memoryHits, messages[:len(messages)-1]); envJSON != "" {
 		reqMessages = append(reqMessages, openai.ChatCompletionMessage{
 			Role:    "system",
-			Content: "以下是触发我这条消息之前的群聊记录（发言人身份以QQ号为准，昵称仅作注释）：\n" + ambient,
+			Content: "【对话环境（JSON）】\n" + envJSON,
 		})
 	}
-	if memoryText != "" {
-		// 长期记忆召回结果，renderText 已含【关于对方的既有记忆】头部
-		reqMessages = append(reqMessages, openai.ChatCompletionMessage{
-			Role:    "system",
-			Content: memoryText,
-		})
-	}
-	reqMessages = append(reqMessages, messages...)
+	reqMessages = append(reqMessages, messages[len(messages)-1])
 	sessionsMu.Unlock()
 
 	fmt.Println("------------")
@@ -208,19 +216,28 @@ func AskForChatGPT(msg string, qq float64, remark string, session string, ambien
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(conf.Config.LLMTimeoutSec)*time.Second)
 	defer cancel()
 
-	resp, err := client.CreateChatCompletion(
-		ctx,
-		openai.ChatCompletionRequest{
-			Model:    model,
-			Messages: reqMessages,
-			User:     qqstr,
-		},
-	)
+	req := openai.ChatCompletionRequest{
+		Model:    model,
+		Messages: reqMessages,
+		User:     qqstr,
+	}
+	// 端点不支持 json_object 时将 chatJsonMode 置 false 回退纯 prompt 模式（ParseReply 兜底仍可解析）
+	if conf.Config.ChatJsonMode {
+		req.ResponseFormat = &openai.ChatCompletionResponseFormat{
+			Type: openai.ChatCompletionResponseFormatTypeJSONObject,
+		}
+	}
+	resp, err := client.CreateChatCompletion(ctx, req)
 
 	if err != nil {
 		fmt.Printf("ChatCompletion error: %v\n", err)
-		return resp, err
+		return resp, emptyReply, err
 	}
+	if len(resp.Choices) == 0 {
+		return resp, emptyReply, fmt.Errorf("empty choices")
+	}
+	// 输出协议解析：失败兜底整段当 reply；会话上下文只存原始 content
+	parsed := inline.NormalizeReply(inline.ParseReply(resp.Choices[0].Message.Content))
 
 	// 回复纳入上下文（窗口与 max_memory 裁剪已控制总量）
 	sessionsMu.Lock()
@@ -229,9 +246,59 @@ func AskForChatGPT(msg string, qq float64, remark string, session string, ambien
 	cur.Last_time = now
 	sessions[session] = cur
 	sessionsMu.Unlock()
-	json, err := json.Marshal(resp)
-	fmt.Println(string(json))
-	return resp, err
+	if respJSON, mErr := json.Marshal(resp); mErr == nil {
+		fmt.Println(string(respJSON))
+	}
+	return resp, parsed, nil
+}
+
+// chatContextJSON 结构化环境 system 段：ambient 快照 + 召回记忆 + 会话历史
+type chatContextJSON struct {
+	Ambient json.RawMessage      `json:"ambient,omitempty"`
+	Memory  []contextMemoryHit   `json:"memory,omitempty"`
+	History []contextHistoryItem `json:"history,omitempty"`
+}
+
+type contextMemoryHit struct {
+	Score float64 `json:"score"`
+	Text  string  `json:"text"`
+}
+
+type contextHistoryItem struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+// buildChatContextJSON 组装环境 JSON；ambient/memory/history 全空返回 ""
+func buildChatContextJSON(ambientJSON string, memoryHits []recall.MemoryHit, history []openai.ChatCompletionMessage) string {
+	env := chatContextJSON{}
+	if ambientJSON != "" {
+		env.Ambient = json.RawMessage(ambientJSON)
+	}
+	for _, h := range memoryHits {
+		text := strings.TrimSpace(h.Text)
+		if text == "" {
+			text = strings.TrimSpace(h.Summary)
+		}
+		if text == "" {
+			continue
+		}
+		env.Memory = append(env.Memory, contextMemoryHit{Score: h.Score, Text: text})
+	}
+	for _, m := range history {
+		if strings.TrimSpace(m.Content) == "" {
+			continue
+		}
+		env.History = append(env.History, contextHistoryItem{Role: m.Role, Content: m.Content})
+	}
+	if env.Ambient == nil && len(env.Memory) == 0 && len(env.History) == 0 {
+		return ""
+	}
+	body, err := json.Marshal(env)
+	if err != nil {
+		return ""
+	}
+	return string(body)
 }
 
 func JustChatGpt(msg string, qq string) (openai.ChatCompletionResponse, error) {
@@ -464,31 +531,43 @@ func AddPlan(msgStr string, msg map[string]interface{}) {
 	// 快照捕获进闭包，与排队等待重叠，执行时不再与窗口写入竞争
 	ctxbackfill.EnsureGroupWindow(groupIdStr)
 	ambient := chatctx.SnapshotRendered(groupIdStr, msgIdStr)
+	ambientJSON := chatctx.SnapshotJSON(groupIdStr, msgIdStr)
 	// 触发时刻发起长期记忆召回，与排队等待重叠；环境上下文参与 embedding 提升召回相关性
 	recallQuery := msgStr
 	if ambient != "" {
 		recallQuery = ambient + "\n" + msgStr
 	}
-	recallHandle := memoryCollector.StartRecall("group",
-		strconv.FormatFloat(msg["user_id"].(float64), 'f', -1, 64), groupIdStr, recallQuery)
+	qqStr := strconv.FormatFloat(msg["user_id"].(float64), 'f', -1, 64)
+	recallHandle := memoryCollector.StartRecall("group", qqStr, groupIdStr, recallQuery)
 	submitted := chatScheduler.Submit(session, func() {
 		checkSession(session)
 		remark := msg["sender"].(map[string]interface{})["nickname"].(string)
 		if msg["sender"].(map[string]interface{})["card"].(string) != "" {
 			remark = msg["sender"].(map[string]interface{})["card"].(string)
 		}
-		memoryText := recallHandle.Result()
-		res, err := AskForChatGPT(msgStr, msg["user_id"].(float64), remark, session, ambient, memoryText)
+		res, parsed, err := AskForChatGPT(msgStr, msg["user_id"].(float64), remark, session, ambientJSON, recallHandle.Hits())
 
-		if err == nil && res.Choices[0].Message.Content != "" {
-			replyText := strings.TrimSpace(res.Choices[0].Message.Content)
-			send.SendGroupPost(msg["group_id"].(float64), replyText)
-			// NapCat 不回推机器人自己的群消息，回复需手动入窗
-			chatctx.AppendBotReply(groupIdStr, replyText)
-			memoryCollector.CollectOutput("group", "group", session, msg, replyText)
-			// send.SendTTS(msg["group_id"].(float64), strings.TrimSpace(res.Choices[0].Message.Content))
-			model.LogUserUseTokens(msg["user_id"].(float64), res.Usage.TotalTokens, res.ID)
-			return
+		if err == nil {
+			replyText := parsed.Reply
+			if replyText == "" {
+				// 兜底：协议解析出的 reply 为空时用原文发送，防模型误判静默（should_reply 自主语义留阶段五）
+				replyText = strings.TrimSpace(res.Choices[0].Message.Content)
+				if replyText != "" {
+					log.Printf("chat reply fallback session=%s reason=empty_parsed_reply len=%d", session, len([]rune(replyText)))
+				}
+			}
+			if replyText != "" {
+				send.SendGroupPost(msg["group_id"].(float64), replyText)
+				// NapCat 不回推机器人自己的群消息，回复需手动入窗
+				chatctx.AppendBotReply(groupIdStr, replyText)
+				memoryCollector.CollectOutput("group", "group", session, msg, replyText)
+				if len(parsed.Memory) > 0 {
+					go memoryCollector.EnqueueInlineCandidates("group", qqStr, groupIdStr, session, msgIdStr, "inline", parsed.Memory)
+				}
+				// send.SendTTS(msg["group_id"].(float64), strings.TrimSpace(res.Choices[0].Message.Content))
+				model.LogUserUseTokens(msg["user_id"].(float64), res.Usage.TotalTokens, res.ID)
+				return
+			}
 		}
 		if err != nil {
 			send.SendGroupPost(msg["group_id"].(float64), replyFailed)
@@ -504,21 +583,33 @@ func AddPlanPrivate(msgStr string, msg map[string]interface{}) {
 		return
 	}
 	// 触发时刻发起长期记忆召回（私聊只查 user 集合），与排队等待重叠
-	recallHandle := memoryCollector.StartRecall("user",
-		strconv.FormatFloat(msg["user_id"].(float64), 'f', -1, 64), "", msgStr)
+	qqStr := strconv.FormatFloat(msg["user_id"].(float64), 'f', -1, 64)
+	msgIdStr := strconv.FormatFloat(msg["message_id"].(float64), 'f', -1, 64)
+	recallHandle := memoryCollector.StartRecall("user", qqStr, "", msgStr)
 	submitted := chatScheduler.Submit(session, func() {
 		checkSession(session)
-		memoryText := recallHandle.Result()
 		// 私聊消息本就全量进会话上下文，无需环境记录注入
-		res, err := AskForChatGPT(msgStr, msg["user_id"].(float64), "", session, "", memoryText)
+		res, parsed, err := AskForChatGPT(msgStr, msg["user_id"].(float64), "", session, "", recallHandle.Hits())
 
-		if err == nil && res.Choices[0].Message.Content != "" {
-			replyText := strings.TrimSpace(res.Choices[0].Message.Content)
-			send.SendPrivatePost(msg["user_id"].(float64), replyText)
-			memoryCollector.CollectOutput("user", "private", session, msg, replyText)
-			// send.SendTTS(msg["group_id"].(float64), strings.TrimSpace(res.Choices[0].Message.Content))
-			model.LogUserUseTokens(msg["user_id"].(float64), res.Usage.TotalTokens, res.ID)
-			return
+		if err == nil {
+			replyText := parsed.Reply
+			if replyText == "" {
+				// 兜底：协议解析出的 reply 为空时用原文发送，防模型误判静默
+				replyText = strings.TrimSpace(res.Choices[0].Message.Content)
+				if replyText != "" {
+					log.Printf("chat reply fallback session=%s reason=empty_parsed_reply len=%d", session, len([]rune(replyText)))
+				}
+			}
+			if replyText != "" {
+				send.SendPrivatePost(msg["user_id"].(float64), replyText)
+				memoryCollector.CollectOutput("user", "private", session, msg, replyText)
+				if len(parsed.Memory) > 0 {
+					go memoryCollector.EnqueueInlineCandidates("user", qqStr, "", session, msgIdStr, "inline", parsed.Memory)
+				}
+				// send.SendTTS(msg["group_id"].(float64), strings.TrimSpace(res.Choices[0].Message.Content))
+				model.LogUserUseTokens(msg["user_id"].(float64), res.Usage.TotalTokens, res.ID)
+				return
+			}
 		}
 		if err != nil {
 			send.SendPrivatePost(msg["user_id"].(float64), replyFailed)

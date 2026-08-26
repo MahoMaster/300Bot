@@ -4,6 +4,7 @@
 package chatctx
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -255,9 +256,55 @@ func WindowLen(groupId string) int {
 // SnapshotRendered 将窗口内未超出空闲超时的消息渲染为群聊记录文本（时间升序），
 // 从新到旧按字符预算截断；excludeMsgIds 用于排除即将单独作为触发消息出现的条目
 func SnapshotRendered(groupId string, excludeMsgIds ...string) string {
+	selected := selectSnapshot(groupId, excludeMsgIds...)
+	if len(selected) == 0 {
+		return ""
+	}
+	lines := make([]string, 0, len(selected))
+	for _, e := range selected {
+		lines = append(lines, renderLine(e))
+	}
+	return strings.Join(lines, "\n")
+}
+
+// snapshotEntry 结构化快照条目（阶段四 JSON 化输入）
+type snapshotEntry struct {
+	QQ       string `json:"qq"`
+	Nickname string `json:"nickname"`
+	Text     string `json:"text"`
+	Time     int64  `json:"time"`
+	Bot      bool   `json:"bot"`
+}
+
+// SnapshotJSON 与 SnapshotRendered 相同过滤规则，但输出 JSON 数组文本（time 为 unix 秒）；
+// 空窗口或序列化失败返回 ""
+func SnapshotJSON(groupId string, excludeMsgIds ...string) string {
+	selected := selectSnapshot(groupId, excludeMsgIds...)
+	if len(selected) == 0 {
+		return ""
+	}
+	items := make([]snapshotEntry, 0, len(selected))
+	for _, e := range selected {
+		items = append(items, snapshotEntry{
+			QQ:       e.QQ,
+			Nickname: e.Nickname,
+			Text:     e.Text,
+			Time:     e.Time,
+			Bot:      e.IsBot,
+		})
+	}
+	body, err := json.Marshal(items)
+	if err != nil {
+		return ""
+	}
+	return string(body)
+}
+
+// selectSnapshot 复制窗口并按空闲超时/exclude/字符预算（从新到旧）过滤，返回时间升序候选
+func selectSnapshot(groupId string, excludeMsgIds ...string) []Entry {
 	w := getWindow(groupId)
 	if w == nil {
-		return ""
+		return nil
 	}
 	exclude := make(map[string]struct{}, len(excludeMsgIds))
 	for _, id := range excludeMsgIds {
@@ -289,14 +336,11 @@ func SnapshotRendered(groupId string, excludeMsgIds ...string) string {
 		budget -= cost
 		selected = append(selected, e)
 	}
-	if len(selected) == 0 {
-		return ""
+	// 反转为时间升序
+	for i, j := 0, len(selected)-1; i < j; i, j = i+1, j-1 {
+		selected[i], selected[j] = selected[j], selected[i]
 	}
-	lines := make([]string, 0, len(selected))
-	for i := len(selected) - 1; i >= 0; i-- {
-		lines = append(lines, renderLine(selected[i]))
-	}
-	return strings.Join(lines, "\n")
+	return selected
 }
 
 // renderLine 双身份格式：群友以 昵称+QQ 号标注，机器人直呼其名
