@@ -44,6 +44,12 @@ type BaseConfig struct {
 	BgConcurrency   int `json:"bgConcurrency"`   // 后台池全局并发上限，默认 2
 	LLMTimeoutSec   int `json:"llmTimeoutSec"`   // 单次 LLM 生成超时秒数，默认 120
 
+	// 群聊上下文滑动窗口可选项，未配置时代码内补默认值
+	CtxWindowSize     int `json:"ctxWindowSize"`     // 每群窗口保留条数，默认 50
+	CtxWindowMaxChars int `json:"ctxWindowMaxChars"` // 注入群聊记录的字符预算，默认 4000
+	CtxIdleMinutes    int `json:"ctxIdleMinutes"`    // 会话空闲超时分钟数，默认 30
+	CtxBackfillCount  int `json:"ctxBackfillCount"`  // NapCat 历史补拉条数，默认 20
+
 	MoneyList []string `json:"moneyList"` //赞助列表
 }
 
@@ -130,6 +136,18 @@ func applyBaseConfigDefaults(cfg *BaseConfig) {
 	}
 	if cfg.LLMTimeoutSec <= 0 {
 		cfg.LLMTimeoutSec = 120
+	}
+	if cfg.CtxWindowSize <= 0 {
+		cfg.CtxWindowSize = 50
+	}
+	if cfg.CtxWindowMaxChars <= 0 {
+		cfg.CtxWindowMaxChars = 4000
+	}
+	if cfg.CtxIdleMinutes <= 0 {
+		cfg.CtxIdleMinutes = 30
+	}
+	if cfg.CtxBackfillCount <= 0 {
+		cfg.CtxBackfillCount = 20
 	}
 }
 

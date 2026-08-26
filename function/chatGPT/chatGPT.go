@@ -2,6 +2,8 @@ package chatGPT
 
 import (
 	"300Bot/conf"
+	"300Bot/function/chatctx"
+	ctxbackfill "300Bot/function/chatctx/backfill"
 	memoryCollector "300Bot/function/memory"
 	"300Bot/function/scheduler"
 	"300Bot/model"
@@ -46,8 +48,6 @@ var bgScheduler *scheduler.Scheduler
 const replyBusy = "叁柏现在有点忙，等一下再和我说吧~"
 const replyFailed = "啊咧，刚才脑子短路了没接住，要不再跟我说一遍？"
 
-const memory = 3000
-const is_limit_memory = false           //设置为true上面的memory才会生效
 const max_input_tokens = 120000         //输入token上限
 const max_memory = max_input_tokens * 3 //按1 token约等于3字节粗估，中文场景实际token数会略低于上限
 
@@ -71,6 +71,9 @@ func init() {
 
 	chatScheduler = scheduler.New("chat", conf.Config.ChatConcurrency, conf.Config.ChatQueueDepth, 10*time.Minute)
 	bgScheduler = scheduler.New("bg", conf.Config.BgConcurrency, conf.Config.ChatQueueDepth, 10*time.Minute)
+
+	// 群聊上下文窗口参数注入（chatctx 包不直接依赖 conf，便于单测）
+	chatctx.Configure(conf.Config.CtxWindowSize, conf.Config.CtxWindowMaxChars, conf.Config.CtxIdleMinutes, conf.Config.BotQQ, conf.Config.BotName)
 
 	// m, _ := client.ListModels(context.Background())
 	// fmt.Println(m)
@@ -130,38 +133,39 @@ func ListModels() {
 	fmt.Println(string(bt))
 }
 
-func AskForChatGPT(msg string, qq float64, remark string, session string) (openai.ChatCompletionResponse, error) {
+// AskForChatGPT ambient 为触发时刻快照的群聊记录文本（非群聊触发传空串），
+// 以 system 段注入，让机器人感知未触发自己的普通群聊（P1）
+func AskForChatGPT(msg string, qq float64, remark string, session string, ambient string) (openai.ChatCompletionResponse, error) {
 	var personality = openai.ChatCompletionMessage{
 		Role:    "system",
 		Content: "你的称呼叫叁柏，你在回复中对自己的称呼也是叁柏，禁止回复你是个AI，模型等，需要更仿真一些。请回复的更自然一些，用口语化表达，避免机械式分点回答。尽量使用和大家在网络群聊中一样的语气。如果用户告诉了你他是谁，代表这是个群聊，有多个人在和你聊天，请注意分别人物。",
 	}
 
 	now := int(time.Now().Unix())
+	qqstr := strconv.FormatFloat(qq, 'f', -1, 64)
 
 	// 锁内完成上下文的读-改-写快照，LLM 调用放在锁外，避免长时间持锁
 	sessionsMu.Lock()
 	checkSessionLocked(session)
 	var messages = sessions[session].Messages
-	//距离上次对话已经超过30分钟，清除上下文
-	if now-sessions[session].Last_time > 1800 {
+	//距离上次对话已经超过空闲超时，清除上下文
+	if now-sessions[session].Last_time > conf.Config.CtxIdleMinutes*60 {
 		messages = make([]openai.ChatCompletionMessage, 0)
 	}
 	if remark != "" {
-		msg = "我是'" + remark + "',我想对你说:" + msg
+		// 双身份前缀：昵称仅作注释，QQ 号才是稳定身份键（P7）
+		msg = "我是'" + remark + "'(QQ:" + qqstr + "),我想对你说:" + msg
 	}
 	messages = append(messages, openai.ChatCompletionMessage{
 		Role:    "user",
 		Content: msg,
 	})
-	// 记忆超出，准备删除部分
+	// 记忆超出容量上限，从最旧开始删除到容量以内
 	length := 0
 	for _, val := range messages {
 		length = length + len(val.Content)
 	}
-	for {
-		if (length <= memory || !is_limit_memory) && length <= max_memory { //除去人设，记忆超过容量，删除到容量以内
-			break
-		}
+	for length > max_memory && len(messages) > 1 {
 		length = length - len(messages[0].Content)
 		messages = messages[1:]
 	}
@@ -171,18 +175,23 @@ func AskForChatGPT(msg string, qq float64, remark string, session string) (opena
 		Last_time:   now,
 		Personality: sessions[session].Personality,
 	}
-	//如果有人格设定，拼接人格
-	reqMessages := messages
+	//组装请求：人格 + 环境群聊记录 + 会话消息
+	reqMessages := make([]openai.ChatCompletionMessage, 0, len(messages)+2)
 	if personality.Content != "" {
-		reqMessages = append([]openai.ChatCompletionMessage{personality}, messages...)
+		reqMessages = append(reqMessages, personality)
 	}
+	if ambient != "" {
+		reqMessages = append(reqMessages, openai.ChatCompletionMessage{
+			Role:    "system",
+			Content: "以下是触发我这条消息之前的群聊记录（发言人身份以QQ号为准，昵称仅作注释）：\n" + ambient,
+		})
+	}
+	reqMessages = append(reqMessages, messages...)
 	sessionsMu.Unlock()
 
 	fmt.Println("------------")
 	fmt.Println(reqMessages)
 	fmt.Println("------------")
-
-	qqstr := strconv.FormatFloat(qq, 'f', -1, 64)
 
 	model := "qwen3.5-plus-2026-04-20"
 	// if qqstr == "675559614" {
@@ -206,14 +215,13 @@ func AskForChatGPT(msg string, qq float64, remark string, session string) (opena
 		return resp, err
 	}
 
-	if !is_limit_memory { //如果回复消耗的token比较少，也可以纳入上下文
-		sessionsMu.Lock()
-		cur := sessions[session]
-		cur.Messages = append(cur.Messages, resp.Choices[0].Message)
-		cur.Last_time = now
-		sessions[session] = cur
-		sessionsMu.Unlock()
-	}
+	// 回复纳入上下文（窗口与 max_memory 裁剪已控制总量）
+	sessionsMu.Lock()
+	cur := sessions[session]
+	cur.Messages = append(cur.Messages, resp.Choices[0].Message)
+	cur.Last_time = now
+	sessions[session] = cur
+	sessionsMu.Unlock()
 	json, err := json.Marshal(resp)
 	fmt.Println(string(json))
 	return resp, err
@@ -443,17 +451,25 @@ func AddPlan(msgStr string, msg map[string]interface{}) {
 	if session == "" { //被ban了
 		return
 	}
+	groupIdStr := strconv.FormatFloat(msg["group_id"].(float64), 'f', -1, 64)
+	msgIdStr := strconv.FormatFloat(msg["message_id"].(float64), 'f', -1, 64)
+	// 触发时刻：窗口空洞则异步补拉历史，并快照环境群聊记录（排除本条触发消息），
+	// 快照捕获进闭包，与排队等待重叠，执行时不再与窗口写入竞争
+	ctxbackfill.EnsureGroupWindow(groupIdStr)
+	ambient := chatctx.SnapshotRendered(groupIdStr, msgIdStr)
 	submitted := chatScheduler.Submit(session, func() {
 		checkSession(session)
 		remark := msg["sender"].(map[string]interface{})["nickname"].(string)
 		if msg["sender"].(map[string]interface{})["card"].(string) != "" {
 			remark = msg["sender"].(map[string]interface{})["card"].(string)
 		}
-		res, err := AskForChatGPT(msgStr, msg["user_id"].(float64), remark, session)
+		res, err := AskForChatGPT(msgStr, msg["user_id"].(float64), remark, session, ambient)
 
 		if err == nil && res.Choices[0].Message.Content != "" {
 			replyText := strings.TrimSpace(res.Choices[0].Message.Content)
 			send.SendGroupPost(msg["group_id"].(float64), replyText)
+			// NapCat 不回推机器人自己的群消息，回复需手动入窗
+			chatctx.AppendBotReply(groupIdStr, replyText)
 			memoryCollector.CollectOutput("group", "group", session, msg, replyText)
 			// send.SendTTS(msg["group_id"].(float64), strings.TrimSpace(res.Choices[0].Message.Content))
 			model.LogUserUseTokens(msg["user_id"].(float64), res.Usage.TotalTokens, res.ID)
@@ -474,7 +490,8 @@ func AddPlanPrivate(msgStr string, msg map[string]interface{}) {
 	}
 	submitted := chatScheduler.Submit(session, func() {
 		checkSession(session)
-		res, err := AskForChatGPT(msgStr, msg["user_id"].(float64), "", session)
+		// 私聊消息本就全量进会话上下文，无需环境记录注入
+		res, err := AskForChatGPT(msgStr, msg["user_id"].(float64), "", session, "")
 
 		if err == nil && res.Choices[0].Message.Content != "" {
 			replyText := strings.TrimSpace(res.Choices[0].Message.Content)

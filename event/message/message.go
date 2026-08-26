@@ -4,6 +4,7 @@ import (
 	"300Bot/conf"
 	"300Bot/function/bangDream/station"
 	"300Bot/function/chatGPT"
+	"300Bot/function/chatctx"
 	"300Bot/function/emotion"
 	"300Bot/function/immortal"
 	memoryCollector "300Bot/function/memory"
@@ -86,6 +87,7 @@ func group(msg map[string]interface{}) {
 		session = strconv.FormatFloat(msg["group_id"].(float64), 'f', -1, 64)
 	}
 	memoryCollector.CollectInput("group", "group", session, msg)
+	appendChatWindow(msg)
 
 	//查询#号，接入修仙游戏
 	msgStr = strings.TrimSpace(msgStr)
@@ -143,4 +145,31 @@ func group(msg map[string]interface{}) {
 
 	// fmt.Println(self_id)
 	repeat.CheckRepeat(msg)
+}
+
+// appendChatWindow 将全量群聊（含未触发机器人的普通消息）追加进滑动窗口，
+// AI 应答的环境上下文以此为准；非服务群/ban 用户已在上游过滤
+func appendChatWindow(msg map[string]interface{}) {
+	groupId, ok := msg["group_id"].(float64)
+	if !ok {
+		return
+	}
+	userId, _ := msg["user_id"].(float64)
+	rawText, _ := msg["raw_message"].(string)
+	var ts int64
+	if t, ok := msg["time"].(float64); ok {
+		ts = int64(t)
+	}
+	msgId := ""
+	if id, ok := msg["message_id"].(float64); ok {
+		msgId = strconv.FormatFloat(id, 'f', -1, 64)
+	}
+	chatctx.AppendGroup(
+		strconv.FormatFloat(groupId, 'f', -1, 64),
+		msgId,
+		strconv.FormatFloat(userId, 'f', -1, 64),
+		chatctx.SenderNickname(msg),
+		rawText,
+		ts,
+	)
 }

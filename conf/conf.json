@@ -18,7 +18,12 @@
 	"immortalbaseName": "luma_immortal",
 	"chatGPTkey": "",
 	"chatGPTBaseUrl": "",
+	"dashScopeKey": "",
 	"VPN": "http://127.0.0.1:7078",
 	"wetherApiCode": "",
+	"ctxWindowSize": 50,
+	"ctxWindowMaxChars": 4000,
+	"ctxIdleMinutes": 30,
+	"ctxBackfillCount": 20,
 	"moneyList": []
 }

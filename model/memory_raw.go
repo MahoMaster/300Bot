@@ -12,6 +12,7 @@ type MemoryRawTurn struct {
 	Id        int64  `db:"id" json:"id"`
 	Scope     string `db:"scope" json:"scope"`
 	UserId    string `db:"user_id" json:"user_id"`
+	Nickname  string `db:"nickname" json:"nickname"`
 	GroupId   string `db:"group_id" json:"group_id"`
 	SessionId string `db:"session_id" json:"session_id"`
 	MessageId string `db:"message_id" json:"message_id"`
@@ -38,6 +39,7 @@ CREATE TABLE IF NOT EXISTS memory_raw_turns (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   scope VARCHAR(16) NOT NULL,
   user_id VARCHAR(32) NOT NULL DEFAULT '',
+  nickname VARCHAR(64) NOT NULL DEFAULT '',
   group_id VARCHAR(32) NOT NULL DEFAULT '',
   session_id VARCHAR(64) NOT NULL,
   message_id VARCHAR(64) NOT NULL,
@@ -54,12 +56,23 @@ CREATE TABLE IF NOT EXISTS memory_raw_turns (
 	return e
 }
 
+// ensureMemoryRawTurnsNicknameColumn 为存量表幂等补 nickname 列（双身份方案），
+// 列已存在时忽略 Duplicate column name 错误
+func ensureMemoryRawTurnsNicknameColumn() error {
+	_, e := db.Exec("ALTER TABLE memory_raw_turns ADD COLUMN nickname VARCHAR(64) NOT NULL DEFAULT '' AFTER user_id")
+	if e != nil && strings.Contains(e.Error(), "Duplicate column name") {
+		return nil
+	}
+	return e
+}
+
 func InsertMemoryRawTurn(turn MemoryRawTurn) (int64, error) {
 	now := time.Now().Unix()
 	res, e := db.Exec(
-		"insert into memory_raw_turns (`scope`,`user_id`,`group_id`,`session_id`,`message_id`,`source`,`input_text`,`reply_text`,`status`,`created_at`,`updated_at`) values (?,?,?,?,?,?,?,?,?,?,?)",
+		"insert into memory_raw_turns (`scope`,`user_id`,`nickname`,`group_id`,`session_id`,`message_id`,`source`,`input_text`,`reply_text`,`status`,`created_at`,`updated_at`) values (?,?,?,?,?,?,?,?,?,?,?,?)",
 		turn.Scope,
 		turn.UserId,
+		turn.Nickname,
 		turn.GroupId,
 		turn.SessionId,
 		turn.MessageId,

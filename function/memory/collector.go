@@ -2,6 +2,7 @@ package memory
 
 import (
 	"300Bot/conf"
+	"300Bot/function/chatctx"
 	"300Bot/model"
 	"log"
 	"strconv"
@@ -20,6 +21,7 @@ func CollectInput(scope string, source string, sessionId string, msg map[string]
 	turn := model.MemoryRawTurn{
 		Scope:     scope,
 		UserId:    toIDString(msg["user_id"]),
+		Nickname:  chatctx.SenderNickname(msg),
 		GroupId:   toIDString(msg["group_id"]),
 		SessionId: strings.TrimSpace(sessionId),
 		MessageId: messageId,

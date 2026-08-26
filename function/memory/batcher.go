@@ -109,7 +109,7 @@ func callStructuredSummary(scope string, ownerId string, transcript string) (mem
 	if err != nil {
 		return result, err
 	}
-	systemPrompt := "你是记忆总结器。请仅输出 JSON，不要输出其他文字。字段要求：summary(string)、facts(string[])、preferences(string[])、rules(string[])、goals(string[])、importance(1-5整数)、confidence(0-1小数)。若信息不足请给空数组，并降低importance/confidence。"
+	systemPrompt := "你是记忆总结器。请仅输出 JSON，不要输出其他文字。字段要求：summary(string)、facts(string[])、preferences(string[])、rules(string[])、goals(string[])、importance(1-5整数)、confidence(0-1小数)。若信息不足请给空数组，并降低importance/confidence。QQ号是唯一稳定身份键，昵称仅作注释；输出记忆中涉及人物必须引用QQ号，禁止仅凭昵称区分人物。"
 	userPrompt := fmt.Sprintf("scope=%s owner_id=%s\n请根据以下回合内容提取长期记忆候选。\n%s", scope, ownerId, transcript)
 	resp, err := client.CreateChatCompletion(
 		context.Background(),
@@ -165,8 +165,12 @@ func buildSummaryTranscript(turns []model.MemoryRawTurn) ([]model.MemoryRawTurn,
 			prefix := "USER"
 			if strings.EqualFold(strings.TrimSpace(turn.Scope), "group") {
 				uid := strings.TrimSpace(turn.UserId)
-				if uid != "" {
-					prefix = "USER[" + uid + "]"
+				nickname := strings.TrimSpace(turn.Nickname)
+				switch {
+				case uid != "" && nickname != "":
+					prefix = "用户[" + nickname + "](QQ:" + uid + ")"
+				case uid != "":
+					prefix = "用户(QQ:" + uid + ")"
 				}
 			}
 			lines = append(lines, prefix+": "+text)

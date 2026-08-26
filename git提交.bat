@@ -5,5 +5,4 @@ git add .
 git commit -m "%name%"
 git push origin
 git push github
-git push gogs
 pause

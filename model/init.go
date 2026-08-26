@@ -31,6 +31,9 @@ func init() {
 	if err = ensureMemoryRawTurnsTable(); err != nil {
 		panic(err)
 	}
+	if err = ensureMemoryRawTurnsNicknameColumn(); err != nil {
+		panic(err)
+	}
 
 	fmt.Println("数据库连接成功")
 	// c, redisErr = redis.Dial("tcp", "127.0.0.1:6379")
