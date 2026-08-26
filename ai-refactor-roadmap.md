@@ -25,15 +25,15 @@
 | P5 | sessions / gptSetting map 无锁并发读写（SetPersonality 与 AskForChatGPT 竞态） | 阶段一解决 |
 | P6 | LLM 调用无超时、失败静默无兜底 | 阶段一解决（120s 超时 + 兜底文案） |
 | P7 | 群聊发言者区分靠"我是'昵称'"前缀，脆弱 | 阶段二配合双身份方案改善 |
-| P8 | 批量总结时间阈值只在来新消息时被动触发，无定时扫描（`ListPendingMemoryOwnerStats` 无调用者） | 阶段五解决 |
-| P9 | `MemoryFallbackToMysql` 只有日志没有实现 | 阶段五解决 |
-| P10 | 总结失败（status=failed）的回合无补偿机制 | 阶段五随定时扫描解决 |
+| P8 | 批量总结时间阈值只在来新消息时被动触发，无定时扫描（`ListPendingMemoryOwnerStats` 无调用者） | 阶段五已解决（5 分钟 cron 补扫） |
+| P9 | `MemoryFallbackToMysql` 只有日志没有实现 | 阶段五已解决（`memory_summary_fallback` 表 + 定时回灌） |
+| P10 | 总结失败（status=failed）的回合无补偿机制 | 阶段五已解决（补扫查询含 failed） |
 | P11 | 用户画像只有私聊来源，群内用户事实全部归到 group 维度 | 阶段二/三已解决（记忆锚定 QQ 号） |
 | P12 | raw turns 缺昵称，总结素材只有 `USER[QQ号]` | 阶段二解决（昵称 + QQ 号双身份） |
-| P13 | CollectInput 为消息热路径同步 DB insert | 阶段五优化（异步批量） |
-| P14 | `memory_raw_turns` 无清理策略；dedup_window 未真正生效 | 阶段五解决 |
-| P15 | fmt.Println 全量打印请求/响应，日志噪音大 | 阶段五收敛 |
-| P16 | 模型名硬编码（qwen3.5-plus / deepseek-r1） | 阶段五入配置 |
+| P13 | CollectInput 为消息热路径同步 DB insert | 阶段五已解决（channel + 批量 insert） |
+| P14 | `memory_raw_turns` 无清理策略；dedup_window 未真正生效 | 阶段五已解决（每日清理 + 写前点查询） |
+| P15 | fmt.Println 全量打印请求/响应，日志噪音大 | 阶段五已收敛（单行摘要 log.Printf） |
+| P16 | 模型名硬编码（qwen3.5-plus / deepseek-r1） | 阶段五已入配置（chatModel/storyModel/memorySummaryModel） |
 | P17 | `memory=3000`/`is_limit_memory` 常量失效 | 阶段二随滑窗方案重设计 |
 
 ## 3. 五阶段总览
@@ -42,8 +42,8 @@
 阶段一 并发模型重构（地基）          —— 已实施
 阶段二 上下文重建（全量群聊 + NapCat 补拉 + 双身份） —— 已实施
 阶段三 记忆召回注入（Qdrant search + 超时预算 + 与排队重叠） —— 已实施
-阶段四 LLM 交互 JSON 化（结构化输入/输出协议） —— 已实施（本次）
-阶段五 收尾（定时扫描 / fallback / 清理 / 配置化 / 日志） —— 待实施
+阶段四 LLM 交互 JSON 化（结构化输入/输出协议） —— 已实施
+阶段五 收尾（定时扫描 / fallback / 清理 / 配置化 / 日志） —— 已实施（本次）
 ```
 
 ## 4. 阶段一：并发模型重构（已实施）
@@ -157,14 +157,24 @@
 - **解析失败兜底**：整段文本当作 reply 直接发送，绝不让用户等空；
 - 保持 `enable_thinking: false`（noThinkingTransport 已就位）。
 
-## 8. 阶段五：收尾项
+## 8. 阶段五：收尾项（已实施）
+
+> 落点：`function/memory/scan.go`（ScanPendingOwners/CleanupSummarizedTurns）、`function/memory/fallback.go`（SaveFallback/BackfillFallback）、`function/memory/raw_writer.go`（异步批量写入器）、`interval.go` 三个 cron、`model/memory_fallback.go` 新表、`qdrant_repo.go` pointFresh 写前去重。
 
 1. **定时补扫**：`interval.go` 注册 5 分钟 cron，调用现成的 `ListPendingMemoryOwnerStats`，对超时未总结与 `failed` 状态的 owner 重新触发 `TryBatchSummarizeOwner`。
+   > 落点：`scan.go::ScanPendingOwners`（单轮至多触发 50 owner）+ `model/memory_raw.go` 查询状态扩展为 `in ('pending','failed')`。
 2. **MySQL fallback 落实**：Qdrant 写入重试耗尽后落 MySQL summary 表，恢复后回灌。
+   > 落点：`worker.go` 重试耗尽调用 `SaveFallback` 写 `memory_summary_fallback` 表；10 分钟 cron `BackfillFallback` 串行回灌（单轮≤20 条，失败即停）。
 3. **数据清理**：`memory_raw_turns` 已 summarized 记录定期清理（如保留 30 天）。
+   > 落点：每日 4 点 cron `CleanupSummarizedTurns`，`memoryRawRetentionDays` 可配置（默认 30），5000/批循环删除。
 4. **模型名入配置**：聊天/总结/修仙故事模型名移入 `conf.local.json`。
+   > 落点：`chatModel`/`storyModel`（BaseConfig）+ `memorySummaryModel`（MemoryConfig），代码内补默认值。
 5. **日志收敛**：全量请求/响应打印改为摘要 `log.Printf`。
+   > 落点：`chatGPT.go` 请求/响应各一条单行摘要（model/messages/cost_ms/tokens/preview）；`model/memory_raw.go` 错误打印同步收敛。
 6. **CollectInput 异步化**：内存 channel + 批量 insert，主链路零 DB 阻塞。
+   > 落点：`raw_writer.go` 单 worker（攒满 `memoryRawBatchSize` 或 1s flush），`CollectInput` 仅非阻塞入队；总结触发改在批量落库后。
+
+另落实 P14 后半：`qdrant_repo.go::pointFresh` 写前点查询，dedup_window 窗口内重复记忆直接跳过（不重复 embed、不刷时间戳）。
 
 ## 9. 阶段一验证清单（真机）
 

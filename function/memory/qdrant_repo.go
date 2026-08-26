@@ -159,6 +159,19 @@ func (r *QdrantRepository) UpsertMemorySummary(summary MemorySummary) (string, e
 		return "", fmt.Errorf("summary 文本为空")
 	}
 
+	dedupKey := BuildDedupKey(summary.Scope, ownerId, text)
+	pointID := BuildPointID(dedupKey)
+
+	// dedup_window 真实生效（P14）：窗口内重复记忆直接跳过，不刷时间戳、不重复 embed
+	if r.dedupWindow > 0 {
+		fresh, err := r.pointFresh(collection, pointID)
+		if err != nil {
+			log.Printf("memory dedup check failed scope=%s err=%v (continue upsert)", summary.Scope, err)
+		} else if fresh {
+			return dedupKey, nil
+		}
+	}
+
 	vector, err := r.embedder.Embed(text)
 	if err != nil {
 		return "", err
@@ -167,8 +180,6 @@ func (r *QdrantRepository) UpsertMemorySummary(summary MemorySummary) (string, e
 		return "", fmt.Errorf("embedding 维度不匹配 got=%d want=%d", len(vector), r.vectorSize)
 	}
 
-	dedupKey := BuildDedupKey(summary.Scope, ownerId, text)
-	pointID := BuildPointID(dedupKey)
 	payload := r.buildPayload(summary, text, dedupKey)
 	point := map[string]interface{}{
 		"id":      pointID,
@@ -196,6 +207,35 @@ func UpsertMemorySummary(summary MemorySummary) (string, error) {
 		return "", err
 	}
 	return repo.UpsertMemorySummary(summary)
+}
+
+// pointFresh 检查同 dedupKey 的点是否已存在且仍在去重窗口内（now - created_at < dedupWindow）；
+// 404/无 created_at 返回 false
+func (r *QdrantRepository) pointFresh(collection string, pointID string) (bool, error) {
+	path := "/collections/" + url.PathEscape(collection) + "/points/" + url.PathEscape(pointID)
+	respBody, statusCode, err := r.doJSON(http.MethodGet, path, nil)
+	if err != nil {
+		return false, err
+	}
+	if statusCode == http.StatusNotFound {
+		return false, nil
+	}
+	if statusCode < 200 || statusCode >= 300 {
+		return false, fmt.Errorf("qdrant point get 失败 status=%d body=%s", statusCode, strings.TrimSpace(string(respBody)))
+	}
+	var got struct {
+		Result struct {
+			Payload map[string]interface{} `json:"payload"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(respBody, &got); err != nil {
+		return false, err
+	}
+	createdAt, _ := got.Result.Payload["created_at"].(float64)
+	if createdAt <= 0 {
+		return false, nil
+	}
+	return time.Now().Unix()-int64(createdAt) < int64(r.dedupWindow), nil
 }
 
 // EmbedQuery 将查询文本转向量，供召回链路在两个 collection 间共用（只 embed 一次）

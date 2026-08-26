@@ -84,6 +84,9 @@ func processMemoryTask(workerId int, summary MemorySummary) {
 
 	memoryFailureCount.Add(1)
 	log.Printf("memory upsert degraded-to-l1 worker=%d scope=%s user=%s group=%s retries=%d err=%v fallback_to_mysql=%v %s", workerId, summary.Scope, summary.UserId, summary.GroupId, retryTimes, err, conf.Memory.MemoryFallbackToMysql, memoryMetricsLogKV())
+	if conf.Memory.MemoryFallbackToMysql {
+		SaveFallback(summary)
+	}
 }
 
 func memoryRetryBackoff(attempt int) time.Duration {

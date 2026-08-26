@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -150,7 +151,7 @@ func GetPendingMemoryRawTurns(scope string, sessionId string, limit int) []Memor
 	var turns = make([]MemoryRawTurn, 0)
 	e := db.Select(&turns, "select * from memory_raw_turns where scope=? and session_id=? and status='pending' order by id asc limit ?", scope, sessionId, limit)
 	if e != nil {
-		fmt.Println(e)
+		log.Printf("memory raw select failed session=%s err=%v", sessionId, e)
 	}
 	return turns
 }
@@ -175,10 +176,11 @@ func GetPendingMemoryRawTurnsByOwner(scope string, ownerId string, limit int) []
 	}
 
 	var turns = make([]MemoryRawTurn, 0)
-	query := fmt.Sprintf("select * from memory_raw_turns where scope=? and %s=? and status='pending' order by id asc limit ?", ownerColumn)
+	// 含 failed：定时补扫对总结失败的回合做补偿重总结（P10）
+	query := fmt.Sprintf("select * from memory_raw_turns where scope=? and %s=? and status in ('pending','failed') order by id asc limit ?", ownerColumn)
 	e := db.Select(&turns, query, scope, ownerId, limit)
 	if e != nil {
-		fmt.Println(e)
+		log.Printf("memory raw select failed scope=%s owner=%s err=%v", scope, ownerId, e)
 	}
 	return turns
 }
@@ -198,14 +200,63 @@ func ListPendingMemoryOwnerStats(limit int) []MemoryPendingOwnerStat {
 			min(created_at) as first_turn_at,
 			max(created_at) as latest_turn_at
 		from memory_raw_turns
-		where status='pending'
+		where status in ('pending','failed')
 		group by scope, owner_id
 		order by first_turn_at asc
 		limit ?`,
 		limit,
 	)
 	if e != nil {
-		fmt.Println(e)
+		log.Printf("memory raw owner stats failed err=%v", e)
 	}
 	return stats
+}
+
+// BatchInsertMemoryRawTurns 多值单语句批量插入（status 固定 pending），供异步写入器使用
+func BatchInsertMemoryRawTurns(turns []MemoryRawTurn) error {
+	if len(turns) == 0 {
+		return nil
+	}
+	now := time.Now().Unix()
+	var sb strings.Builder
+	sb.WriteString("insert into memory_raw_turns (`scope`,`user_id`,`nickname`,`group_id`,`session_id`,`message_id`,`source`,`input_text`,`reply_text`,`status`,`created_at`,`updated_at`) values ")
+	args := make([]interface{}, 0, len(turns)*12)
+	for i, turn := range turns {
+		if i > 0 {
+			sb.WriteString(",")
+		}
+		sb.WriteString("(?,?,?,?,?,?,?,?,?,?,?,?)")
+		args = append(args,
+			turn.Scope,
+			turn.UserId,
+			turn.Nickname,
+			turn.GroupId,
+			turn.SessionId,
+			turn.MessageId,
+			turn.Source,
+			turn.InputText,
+			turn.ReplyText,
+			"pending",
+			now,
+			now,
+		)
+	}
+	_, e := db.Exec(sb.String(), args...)
+	return e
+}
+
+// DeleteSummarizedMemoryRawTurns 分批清理已总结的过期记录，返回本批影响行数
+func DeleteSummarizedMemoryRawTurns(cutoffUnix int64, limit int) (int64, error) {
+	if limit <= 0 {
+		limit = 5000
+	}
+	res, e := db.Exec("delete from memory_raw_turns where status='summarized' and updated_at < ? limit ?", cutoffUnix, limit)
+	if e != nil {
+		return 0, e
+	}
+	aff, e := res.RowsAffected()
+	if e != nil {
+		return 0, e
+	}
+	return aff, nil
 }

@@ -31,11 +31,9 @@ func CollectInput(scope string, source string, sessionId string, msg map[string]
 	if turn.SessionId == "" || turn.MessageId == "" {
 		return
 	}
-	if _, err := model.InsertMemoryRawTurn(turn); err != nil {
-		log.Printf("CollectInput insert failed: %v", err)
-		return
-	}
-	go TryBatchSummarizeOwner(turn.Scope, turn.UserId, turn.GroupId)
+	// 热路径零 DB 阻塞（P13）：仅非阻塞入队，批量落库后由 raw writer 触发总结；
+	// 队列满仅记日志丢弃（raw_turns 本就是 L1 兜底，窗口上下文不受影响）
+	enqueueRawTurn(turn)
 }
 
 func CollectOutput(scope string, source string, sessionId string, msg map[string]interface{}, replyText string) {

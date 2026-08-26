@@ -204,14 +204,9 @@ func AskForChatGPT(msg string, qq float64, remark string, session string, ambien
 	reqMessages = append(reqMessages, messages[len(messages)-1])
 	sessionsMu.Unlock()
 
-	fmt.Println("------------")
-	fmt.Println(reqMessages)
-	fmt.Println("------------")
-
-	model := "qwen3.5-plus-2026-04-20"
-	// if qqstr == "675559614" {
-	// 	model = "deepseek-r1"
-	// }
+	model := conf.Config.ChatModel
+	// 日志收敛（P15）：不再全量打印请求消息，仅记单行摘要
+	log.Printf("chat request session=%s model=%s messages=%d last_len=%d", session, model, len(reqMessages), len([]rune(messages[len(messages)-1].Content)))
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(conf.Config.LLMTimeoutSec)*time.Second)
 	defer cancel()
@@ -227,10 +222,11 @@ func AskForChatGPT(msg string, qq float64, remark string, session string, ambien
 			Type: openai.ChatCompletionResponseFormatTypeJSONObject,
 		}
 	}
+	start := time.Now()
 	resp, err := client.CreateChatCompletion(ctx, req)
 
 	if err != nil {
-		fmt.Printf("ChatCompletion error: %v\n", err)
+		log.Printf("ChatCompletion error session=%s model=%s err=%v", session, model, err)
 		return resp, emptyReply, err
 	}
 	if len(resp.Choices) == 0 {
@@ -246,9 +242,8 @@ func AskForChatGPT(msg string, qq float64, remark string, session string, ambien
 	cur.Last_time = now
 	sessions[session] = cur
 	sessionsMu.Unlock()
-	if respJSON, mErr := json.Marshal(resp); mErr == nil {
-		fmt.Println(string(respJSON))
-	}
+	// 日志收敛（P15）：不再全量打印响应 JSON，仅记单行摘要
+	log.Printf("chat response session=%s model=%s cost_ms=%d tokens=%d reply_preview=%s", session, model, time.Since(start).Milliseconds(), resp.Usage.TotalTokens, recall.PreviewText(parsed.Reply, 80))
 	return resp, parsed, nil
 }
 
@@ -307,7 +302,7 @@ func JustChatGpt(msg string, qq string) (openai.ChatCompletionResponse, error) {
 	resp, err := client.CreateChatCompletion(
 		ctx,
 		openai.ChatCompletionRequest{
-			Model: "deepseek-r1",
+			Model: conf.Config.StoryModel,
 			Messages: []openai.ChatCompletionMessage{
 				{
 					Role:    "user",
@@ -318,7 +313,7 @@ func JustChatGpt(msg string, qq string) (openai.ChatCompletionResponse, error) {
 		},
 	)
 	if err != nil {
-		fmt.Printf("ChatCompletion error: %v\n", err)
+		log.Printf("ChatCompletion error story user=%s model=%s err=%v", qq, conf.Config.StoryModel, err)
 		return resp, err
 	}
 	return resp, err

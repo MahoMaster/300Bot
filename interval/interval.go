@@ -2,6 +2,7 @@ package interval
 
 import (
 	"300Bot/conf"
+	memoryCollector "300Bot/function/memory"
 	"300Bot/send"
 	"300Bot/store"
 	"300Bot/util"
@@ -28,6 +29,18 @@ func init() {
 	timeInterval()
 }
 
+// withRecover 包装 cron 回调，panic 仅记日志不拖垮调度器
+func withRecover(name string, fn func()) func() {
+	return func() {
+		defer func() {
+			if info := recover(); info != nil {
+				log.Printf("cron %s panic: %v", name, info)
+			}
+		}()
+		fn()
+	}
+}
+
 func timeInterval() {
 	log.Println("定时事件注册")
 	// 每天七点通知天气
@@ -43,6 +56,11 @@ func timeInterval() {
 		// sendLike()
 		omelet()
 	})
+
+	// 记忆收尾项（阶段五）：5 分钟补扫 pending/failed owner；10 分钟回灌 fallback；每日 4 点清理过期 summarized
+	c.AddFunc("0 */5 * * * *", withRecover("memory scan", memoryCollector.ScanPendingOwners))
+	c.AddFunc("0 */10 * * * *", withRecover("memory backfill", memoryCollector.BackfillFallback))
+	c.AddFunc("0 0 4 * * *", withRecover("memory cleanup", memoryCollector.CleanupSummarizedTurns))
 
 	// youzanSign()
 	// spec2 := "30 2 * * *"

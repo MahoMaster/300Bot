@@ -54,6 +54,10 @@ type BaseConfig struct {
 	ChatJsonMode            bool `json:"chatJsonMode"`            // 请求 response_format: json_object
 	ChatMemoryInlineEnabled bool `json:"chatMemoryInlineEnabled"` // 回复内联记忆候选入队
 
+	// 模型名（阶段五）可选项，未配置时代码内补默认值
+	ChatModel  string `json:"chatModel"`  // 聊天模型，默认 qwen3.5-plus-2026-04-20
+	StoryModel string `json:"storyModel"` // 修仙故事/JustChatGpt 模型，默认 deepseek-r1
+
 	MoneyList []string `json:"moneyList"` //赞助列表
 }
 
@@ -70,6 +74,13 @@ type MemoryConfig struct {
 	MemoryMinImportance   int    `json:"memoryMinImportance"`
 	MemoryDedupWindowSec  int    `json:"memoryDedupWindowSec"`
 	MemoryFallbackToMysql bool   `json:"memoryFallbackToMysql"`
+
+	// 收尾项（阶段五）可选项，未配置时代码内补默认值
+	MemorySummaryModel     string `json:"memorySummaryModel"`     // 总结器模型，默认 qwen3.5-plus-2026-04-20
+	MemoryRawRetentionDays int    `json:"memoryRawRetentionDays"` // summarized 记录保留天数，默认 30
+	MemoryRawQueueSize     int    `json:"memoryRawQueueSize"`     // CollectInput 异步队列容量，默认 2000
+	MemoryRawBatchSize     int    `json:"memoryRawBatchSize"`     // 批量 insert 条数，默认 20
+
 	EmbeddingProvider     string `json:"embeddingProvider"`
 	EmbeddingApiKey       string `json:"embeddingApiKey"`
 	EmbeddingModel        string `json:"embeddingModel"`
@@ -160,6 +171,12 @@ func applyBaseConfigDefaults(cfg *BaseConfig) {
 	if cfg.CtxBackfillCount <= 0 {
 		cfg.CtxBackfillCount = 20
 	}
+	if strings.TrimSpace(cfg.ChatModel) == "" {
+		cfg.ChatModel = "qwen3.5-plus-2026-04-20"
+	}
+	if strings.TrimSpace(cfg.StoryModel) == "" {
+		cfg.StoryModel = "deepseek-r1"
+	}
 }
 
 func validateBaseConfig(cfg BaseConfig) error {
@@ -187,6 +204,18 @@ func applyMemoryConfigDefaults(cfg *MemoryConfig) {
 	}
 	if cfg.MemoryRecallMaxChars <= 0 {
 		cfg.MemoryRecallMaxChars = 2000
+	}
+	if strings.TrimSpace(cfg.MemorySummaryModel) == "" {
+		cfg.MemorySummaryModel = "qwen3.5-plus-2026-04-20"
+	}
+	if cfg.MemoryRawRetentionDays <= 0 {
+		cfg.MemoryRawRetentionDays = 30
+	}
+	if cfg.MemoryRawQueueSize <= 0 {
+		cfg.MemoryRawQueueSize = 2000
+	}
+	if cfg.MemoryRawBatchSize <= 0 {
+		cfg.MemoryRawBatchSize = 20
 	}
 }
 

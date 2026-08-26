@@ -15,7 +15,6 @@ import (
 )
 
 const memorySummaryConfidenceThreshold = 0.65
-const memorySummaryModelName = "qwen3.5-plus-2026-04-20"
 
 type memorySummaryResult struct {
 	Summary     string   `json:"summary"`
@@ -114,7 +113,7 @@ func callStructuredSummary(scope string, ownerId string, transcript string) (mem
 	resp, err := client.CreateChatCompletion(
 		context.Background(),
 		openai.ChatCompletionRequest{
-			Model: memorySummaryModelName,
+			Model: conf.Memory.MemorySummaryModel,
 			Messages: []openai.ChatCompletionMessage{
 				{Role: openai.ChatMessageRoleSystem, Content: systemPrompt},
 				{Role: openai.ChatMessageRoleUser, Content: userPrompt},
