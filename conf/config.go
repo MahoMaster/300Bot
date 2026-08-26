@@ -62,18 +62,18 @@ type BaseConfig struct {
 }
 
 type MemoryConfig struct {
-	MemoryEnabled         bool   `json:"memoryEnabled"`
-	MemoryRawStoreEnabled bool   `json:"memoryRawStoreEnabled"`
-	MemoryBatchEnabled    bool   `json:"memoryBatchEnabled"`
-	MemoryBatchMaxTurns   int    `json:"memoryBatchMaxTurns"`
-	MemoryBatchMaxChars   int    `json:"memoryBatchMaxChars"`
-	MemoryBatchMaxWaitSec int    `json:"memoryBatchMaxWaitSec"`
-	MemoryAsyncQueueSize  int    `json:"memoryAsyncQueueSize"`
-	MemoryWorkerCount     int    `json:"memoryWorkerCount"`
-	MemoryRetryTimes      int    `json:"memoryRetryTimes"`
-	MemoryMinImportance   int    `json:"memoryMinImportance"`
-	MemoryDedupWindowSec  int    `json:"memoryDedupWindowSec"`
-	MemoryFallbackToMysql bool   `json:"memoryFallbackToMysql"`
+	MemoryEnabled         bool `json:"memoryEnabled"`
+	MemoryRawStoreEnabled bool `json:"memoryRawStoreEnabled"`
+	MemoryBatchEnabled    bool `json:"memoryBatchEnabled"`
+	MemoryBatchMaxTurns   int  `json:"memoryBatchMaxTurns"`
+	MemoryBatchMaxChars   int  `json:"memoryBatchMaxChars"`
+	MemoryBatchMaxWaitSec int  `json:"memoryBatchMaxWaitSec"`
+	MemoryAsyncQueueSize  int  `json:"memoryAsyncQueueSize"`
+	MemoryWorkerCount     int  `json:"memoryWorkerCount"`
+	MemoryRetryTimes      int  `json:"memoryRetryTimes"`
+	MemoryMinImportance   int  `json:"memoryMinImportance"`
+	MemoryDedupWindowSec  int  `json:"memoryDedupWindowSec"`
+	MemoryFallbackToMysql bool `json:"memoryFallbackToMysql"`
 
 	// 收尾项（阶段五）可选项，未配置时代码内补默认值
 	MemorySummaryModel     string `json:"memorySummaryModel"`     // 总结器模型，默认 qwen3.5-plus-2026-04-20
@@ -81,11 +81,11 @@ type MemoryConfig struct {
 	MemoryRawQueueSize     int    `json:"memoryRawQueueSize"`     // CollectInput 异步队列容量，默认 2000
 	MemoryRawBatchSize     int    `json:"memoryRawBatchSize"`     // 批量 insert 条数，默认 20
 
-	EmbeddingProvider     string `json:"embeddingProvider"`
-	EmbeddingApiKey       string `json:"embeddingApiKey"`
-	EmbeddingModel        string `json:"embeddingModel"`
-	EmbeddingApiUrl       string `json:"embeddingApiUrl"`
-	EmbeddingDimension    int    `json:"embeddingDimension"`
+	EmbeddingProvider  string `json:"embeddingProvider"`
+	EmbeddingApiKey    string `json:"embeddingApiKey"`
+	EmbeddingModel     string `json:"embeddingModel"`
+	EmbeddingApiUrl    string `json:"embeddingApiUrl"`
+	EmbeddingDimension int    `json:"embeddingDimension"`
 
 	// 记忆召回（阶段三）可选项；Enabled 未显式配置时为 false 不启用
 	MemoryRecallEnabled  bool    `json:"memoryRecallEnabled"`

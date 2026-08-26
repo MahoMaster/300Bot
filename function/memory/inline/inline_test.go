@@ -62,7 +62,7 @@ func TestParseReplyShouldReplyFalseKept(t *testing.T) {
 func TestNormalizeReplyTrimAndDropEmpty(t *testing.T) {
 	r := NormalizeReply(ChatReply{
 		Reply:  "  回复  ",
-		Memory: []string{"  有效候选  ", "", "   ",},
+		Memory: []string{"  有效候选  ", "", "   "},
 	})
 	if r.Reply != "回复" {
 		t.Fatalf("reply trim 失败: %q", r.Reply)

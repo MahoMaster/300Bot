@@ -22,7 +22,8 @@ func checkKeywords(keyword string, msgStr string, msg map[string]interface{}) bo
 		send.SendGroupPost(msg["group_id"].(float64), "http://gogs.yugi.cc/Maho/300Bot/src/master/doc")
 		return true
 	case "来张涩图", "色图", "来张色图", "涩图", "整点二次元":
-		chatGPT.AddPseudoSexyImagePlan(msgStr, msg)
+		send.SendGroupPost(msg["group_id"].(float64), "生图太贵了，自己去生图吧？[CQ:face,id=176]")
+		// chatGPT.AddPseudoSexyImagePlan(msgStr, msg)
 		return true
 	case "不够色":
 		send.SendGroupPost(msg["group_id"].(float64), "钱都不给还想看好康的？[CQ:face,id=176]")

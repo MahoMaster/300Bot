@@ -247,7 +247,6 @@ func TestSnapshotJSONCharBudget(t *testing.T) {
 	}
 }
 
-
 func idStr(i int) string {
 	return strconv.Itoa(i)
 }
