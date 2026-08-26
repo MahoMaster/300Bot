@@ -3,6 +3,7 @@ package chatGPT
 import (
 	"300Bot/conf"
 	memoryCollector "300Bot/function/memory"
+	"300Bot/function/scheduler"
 	"300Bot/model"
 	"300Bot/send"
 	"300Bot/util"
@@ -16,6 +17,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	openai "github.com/sashabaranov/go-openai"
@@ -32,6 +34,17 @@ type Session struct {
 
 var sessions = make(map[string]Session, 0)
 var gptSetting = make(map[string]model.UserGPTSetting, 0)
+
+// sessions/gptSetting 会被聊天 worker 与消息处理协程（如设置人格命令）并发读写，需加锁保护
+var sessionsMu sync.RWMutex
+var gptSettingMu sync.RWMutex
+
+// chatScheduler 交互聊天池；bgScheduler 后台任务池（绘图/涩图/修仙故事），两池隔离互不挤占
+var chatScheduler *scheduler.Scheduler
+var bgScheduler *scheduler.Scheduler
+
+const replyBusy = "叁柏现在有点忙，等一下再和我说吧~"
+const replyFailed = "啊咧，刚才脑子短路了没接住，要不再跟我说一遍？"
 
 const memory = 3000
 const is_limit_memory = false           //设置为true上面的memory才会生效
@@ -55,6 +68,9 @@ func init() {
 	config.BaseURL = conf.Config.ChatGPTBaseUrl
 	config.HTTPClient = &http.Client{Transport: &noThinkingTransport{base: http.DefaultTransport}}
 	client = openai.NewClientWithConfig(config)
+
+	chatScheduler = scheduler.New("chat", conf.Config.ChatConcurrency, conf.Config.ChatQueueDepth, 10*time.Minute)
+	bgScheduler = scheduler.New("bg", conf.Config.BgConcurrency, conf.Config.ChatQueueDepth, 10*time.Minute)
 
 	// m, _ := client.ListModels(context.Background())
 	// fmt.Println(m)
@@ -92,6 +108,8 @@ func (t *noThinkingTransport) RoundTrip(req *http.Request) (*http.Response, erro
 func initSessions() {
 	arr := model.GetGroupAllGPTPersonality()
 	arr = append(arr, model.GetUserAllGPTPersonality()...)
+	sessionsMu.Lock()
+	defer sessionsMu.Unlock()
 	for _, val := range arr {
 		var messages = make([]openai.ChatCompletionMessage, 0)
 		sessions[val.Id] = Session{
@@ -113,15 +131,18 @@ func ListModels() {
 }
 
 func AskForChatGPT(msg string, qq float64, remark string, session string) (openai.ChatCompletionResponse, error) {
-	var messages = sessions[session].Messages
-	// var personality = sessions[session].Personality
 	var personality = openai.ChatCompletionMessage{
 		Role:    "system",
 		Content: "你的称呼叫叁柏，你在回复中对自己的称呼也是叁柏，禁止回复你是个AI，模型等，需要更仿真一些。请回复的更自然一些，用口语化表达，避免机械式分点回答。尽量使用和大家在网络群聊中一样的语气。如果用户告诉了你他是谁，代表这是个群聊，有多个人在和你聊天，请注意分别人物。",
 	}
 
-	//距离上次对话已经超过30分钟，清除上下文
 	now := int(time.Now().Unix())
+
+	// 锁内完成上下文的读-改-写快照，LLM 调用放在锁外，避免长时间持锁
+	sessionsMu.Lock()
+	checkSessionLocked(session)
+	var messages = sessions[session].Messages
+	//距离上次对话已经超过30分钟，清除上下文
 	if now-sessions[session].Last_time > 1800 {
 		messages = make([]openai.ChatCompletionMessage, 0)
 	}
@@ -133,9 +154,6 @@ func AskForChatGPT(msg string, qq float64, remark string, session string) (opena
 		Content: msg,
 	})
 	// 记忆超出，准备删除部分
-	// if len(messages) > 4 {
-	// 	messages = append(messages[0:1], messages[2:]...)
-	// }
 	length := 0
 	for _, val := range messages {
 		length = length + len(val.Content)
@@ -147,22 +165,21 @@ func AskForChatGPT(msg string, qq float64, remark string, session string) (opena
 		length = length - len(messages[0].Content)
 		messages = messages[1:]
 	}
-
-	//log本次对话
 	sessions[session] = Session{
 		ID:          session,
 		Messages:    messages,
 		Last_time:   now,
 		Personality: sessions[session].Personality,
 	}
-
 	//如果有人格设定，拼接人格
+	reqMessages := messages
 	if personality.Content != "" {
-		messages = append([]openai.ChatCompletionMessage{personality}, messages...)
+		reqMessages = append([]openai.ChatCompletionMessage{personality}, messages...)
 	}
+	sessionsMu.Unlock()
 
 	fmt.Println("------------")
-	fmt.Println(messages)
+	fmt.Println(reqMessages)
 	fmt.Println("------------")
 
 	qqstr := strconv.FormatFloat(qq, 'f', -1, 64)
@@ -172,11 +189,14 @@ func AskForChatGPT(msg string, qq float64, remark string, session string) (opena
 	// 	model = "deepseek-r1"
 	// }
 
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(conf.Config.LLMTimeoutSec)*time.Second)
+	defer cancel()
+
 	resp, err := client.CreateChatCompletion(
-		context.Background(),
+		ctx,
 		openai.ChatCompletionRequest{
 			Model:    model,
-			Messages: messages,
+			Messages: reqMessages,
 			User:     qqstr,
 		},
 	)
@@ -187,12 +207,12 @@ func AskForChatGPT(msg string, qq float64, remark string, session string) (opena
 	}
 
 	if !is_limit_memory { //如果回复消耗的token比较少，也可以纳入上下文
-		sessions[session] = Session{
-			ID:          session,
-			Messages:    append(sessions[session].Messages, resp.Choices[0].Message),
-			Last_time:   now,
-			Personality: sessions[session].Personality,
-		}
+		sessionsMu.Lock()
+		cur := sessions[session]
+		cur.Messages = append(cur.Messages, resp.Choices[0].Message)
+		cur.Last_time = now
+		sessions[session] = cur
+		sessionsMu.Unlock()
 	}
 	json, err := json.Marshal(resp)
 	fmt.Println(string(json))
@@ -200,8 +220,10 @@ func AskForChatGPT(msg string, qq float64, remark string, session string) (opena
 }
 
 func JustChatGpt(msg string, qq string) (openai.ChatCompletionResponse, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(conf.Config.LLMTimeoutSec)*time.Second)
+	defer cancel()
 	resp, err := client.CreateChatCompletion(
-		context.Background(),
+		ctx,
 		openai.ChatCompletionRequest{
 			Model: "deepseek-r1",
 			Messages: []openai.ChatCompletionMessage{
@@ -335,9 +357,8 @@ func SetPersonality(msgStr string, msg map[string]interface{}) {
 	//修改
 	flag = checkSession(qq)
 
+	sessionsMu.Lock()
 	if flag {
-		// var messages = sessions[qq].Messages
-		// messages[0].Content = msgStr
 		sessions[qq] = Session{
 			ID:        qq,
 			Messages:  sessions[qq].Messages,
@@ -348,15 +369,6 @@ func SetPersonality(msgStr string, msg map[string]interface{}) {
 			},
 		}
 	} else {
-		// var messages = make([]openai.ChatCompletionMessage, 0)
-		// messages = append(messages, openai.ChatCompletionMessage{
-		// 	Role:    "user",
-		// 	Content: msgStr,
-		// })
-		// sessions[qq] = Session{
-		// 	ID:       qq,
-		// 	Messages: messages,
-		// }
 		sessions[qq] = Session{
 			ID:        qq,
 			Messages:  make([]openai.ChatCompletionMessage, 0),
@@ -367,11 +379,19 @@ func SetPersonality(msgStr string, msg map[string]interface{}) {
 			},
 		}
 	}
+	sessionsMu.Unlock()
 	send.SendGroupPost(msg["group_id"].(float64), `已修改`)
 
 }
 
 func checkSession(id string) bool {
+	sessionsMu.Lock()
+	defer sessionsMu.Unlock()
+	return checkSessionLocked(id)
+}
+
+// checkSessionLocked 调用方需已持有 sessionsMu 写锁
+func checkSessionLocked(id string) bool {
 	_, ok := sessions[id]
 	if !ok {
 		sessions[id] = Session{
@@ -390,10 +410,14 @@ func checkSession(id string) bool {
 
 func getUserGptSetting(msg map[string]interface{}, typeInt int) string {
 	qq := strconv.FormatFloat(msg["user_id"].(float64), 'f', -1, 64)
+	gptSettingMu.RLock()
 	gptInfo, ok := gptSetting[qq]
+	gptSettingMu.RUnlock()
 	if !ok {
 		gptInfo = model.GetChatGptInfo(msg["user_id"].(float64))
+		gptSettingMu.Lock()
 		gptSetting[qq] = gptInfo
+		gptSettingMu.Unlock()
 	}
 
 	if gptInfo.Is_ban == 1 {
@@ -414,15 +438,12 @@ func ResolveSession(msg map[string]interface{}, typeInt int) string {
 	return getUserGptSetting(msg, typeInt)
 }
 
-var g = goroutineNew(1)
-
 func AddPlan(msgStr string, msg map[string]interface{}) {
-	g.goroutineRun(func() {
-		// test()
-		session := getUserGptSetting(msg, 0)
-		if session == "" { //被ban了
-			return
-		}
+	session := getUserGptSetting(msg, 0)
+	if session == "" { //被ban了
+		return
+	}
+	submitted := chatScheduler.Submit(session, func() {
 		checkSession(session)
 		remark := msg["sender"].(map[string]interface{})["nickname"].(string)
 		if msg["sender"].(map[string]interface{})["card"].(string) != "" {
@@ -436,20 +457,22 @@ func AddPlan(msgStr string, msg map[string]interface{}) {
 			memoryCollector.CollectOutput("group", "group", session, msg, replyText)
 			// send.SendTTS(msg["group_id"].(float64), strings.TrimSpace(res.Choices[0].Message.Content))
 			model.LogUserUseTokens(msg["user_id"].(float64), res.Usage.TotalTokens, res.ID)
-		}
-	})
-}
-func AddPlanPrivate(msgStr string, msg map[string]interface{}) {
-	g.goroutineRun(func() {
-		// test()
-		// ListModels()
-		// return
-		// EditImg("./static/temp/3.png", "", 1)
-		// return
-		session := getUserGptSetting(msg, 1)
-		if session == "" { //被ban了
 			return
 		}
+		if err != nil {
+			send.SendGroupPost(msg["group_id"].(float64), replyFailed)
+		}
+	})
+	if !submitted { //队列已满，丢弃并兜底提示
+		send.SendGroupPost(msg["group_id"].(float64), replyBusy)
+	}
+}
+func AddPlanPrivate(msgStr string, msg map[string]interface{}) {
+	session := getUserGptSetting(msg, 1)
+	if session == "" { //被ban了
+		return
+	}
+	submitted := chatScheduler.Submit(session, func() {
 		checkSession(session)
 		res, err := AskForChatGPT(msgStr, msg["user_id"].(float64), "", session)
 
@@ -459,27 +482,23 @@ func AddPlanPrivate(msgStr string, msg map[string]interface{}) {
 			memoryCollector.CollectOutput("user", "private", session, msg, replyText)
 			// send.SendTTS(msg["group_id"].(float64), strings.TrimSpace(res.Choices[0].Message.Content))
 			model.LogUserUseTokens(msg["user_id"].(float64), res.Usage.TotalTokens, res.ID)
-		}
-	})
-}
-func AddImgPlan(msgStr string, msg map[string]interface{}) {
-	g.goroutineRun(func() {
-		// test()
-		session := getUserGptSetting(msg, 0)
-		if session == "" { //被ban了
 			return
 		}
+		if err != nil {
+			send.SendPrivatePost(msg["user_id"].(float64), replyFailed)
+		}
+	})
+	if !submitted { //队列已满，丢弃并兜底提示
+		send.SendPrivatePost(msg["user_id"].(float64), replyBusy)
+	}
+}
+func AddImgPlan(msgStr string, msg map[string]interface{}) {
+	session := getUserGptSetting(msg, 0)
+	if session == "" { //被ban了
+		return
+	}
+	bgScheduler.Submit(session, func() {
 		_, url := CreateImg(msgStr, msg["user_id"].(float64))
-		//if flag {
-		//	if len(url) != 0 {
-		//img := `[CQ:image,file=` + url + `]`
-		//		send.SendGroupPost(msg["group_id"].(float64), url)
-		//}
-		//} else {
-		//	if len(url) != 0 {
 		send.SendGroupPost(msg["group_id"].(float64), url)
-		//	}
-		//}
-
 	})
 }

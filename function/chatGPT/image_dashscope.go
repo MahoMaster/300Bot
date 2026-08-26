@@ -60,12 +60,11 @@ type dashScopeImageResponse struct {
 }
 
 func AddPseudoSexyImagePlan(msgStr string, msg map[string]interface{}) {
-	g.goroutineRun(func() {
-		session := getUserGptSetting(msg, 0)
-		if session == "" {
-			return
-		}
-
+	session := getUserGptSetting(msg, 0)
+	if session == "" {
+		return
+	}
+	bgScheduler.Submit(session, func() {
 		imageURL, requestID, errMsg := createPseudoSexyImage(msgStr, msg["user_id"].(float64))
 		if errMsg != "" {
 			reply := "生成失败，你踏马违规了知道吗"

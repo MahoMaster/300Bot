@@ -3,6 +3,7 @@ package model
 import (
 	"300Bot/conf"
 	"fmt"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
@@ -19,6 +20,11 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	// 连接池调优：避免空闲连接被服务端 wait_timeout 掐掉后报 bad connection
+	db.SetMaxIdleConns(4)
+	db.SetMaxOpenConns(8)
+	db.SetConnMaxLifetime(30 * time.Minute)
+	db.SetConnMaxIdleTime(10 * time.Minute)
 	if err = db.Ping(); err != nil {
 		panic(err)
 	}

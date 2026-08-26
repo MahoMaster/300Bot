@@ -38,6 +38,12 @@ type BaseConfig struct {
 	WetherApiCode string `json:"wetherApiCode"`
 	VPN           string `json:"VPN"`
 
+	// Chat 并发调度可选项，未配置时代码内补默认值
+	ChatConcurrency int `json:"chatConcurrency"` // 交互池全局并发上限，默认 3
+	ChatQueueDepth  int `json:"chatQueueDepth"`  // 每会话队列深度，默认 8
+	BgConcurrency   int `json:"bgConcurrency"`   // 后台池全局并发上限，默认 2
+	LLMTimeoutSec   int `json:"llmTimeoutSec"`   // 单次 LLM 生成超时秒数，默认 120
+
 	MoneyList []string `json:"moneyList"` //赞助列表
 }
 
@@ -111,6 +117,22 @@ func loadJSONConfig(path string, out interface{}) error {
 	return nil
 }
 
+// applyBaseConfigDefaults 对未配置的可选并发项补代码默认值，避免强制要求本地配置
+func applyBaseConfigDefaults(cfg *BaseConfig) {
+	if cfg.ChatConcurrency <= 0 {
+		cfg.ChatConcurrency = 3
+	}
+	if cfg.ChatQueueDepth <= 0 {
+		cfg.ChatQueueDepth = 8
+	}
+	if cfg.BgConcurrency <= 0 {
+		cfg.BgConcurrency = 2
+	}
+	if cfg.LLMTimeoutSec <= 0 {
+		cfg.LLMTimeoutSec = 120
+	}
+}
+
 func validateBaseConfig(cfg BaseConfig) error {
 	if strings.TrimSpace(cfg.DatabaseHost) == "" ||
 		strings.TrimSpace(cfg.DatabaseUser) == "" ||
@@ -167,6 +189,7 @@ func loadAllLocalConfig() error {
 	if err := loadJSONConfig("./conf/conf.local.json", &Config); err != nil {
 		return fmt.Errorf("读取 conf.local.json 失败: %w", err)
 	}
+	applyBaseConfigDefaults(&Config)
 	if err := validateBaseConfig(Config); err != nil {
 		return err
 	}
