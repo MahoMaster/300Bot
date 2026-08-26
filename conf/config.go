@@ -71,6 +71,13 @@ type MemoryConfig struct {
 	EmbeddingModel        string `json:"embeddingModel"`
 	EmbeddingApiUrl       string `json:"embeddingApiUrl"`
 	EmbeddingDimension    int    `json:"embeddingDimension"`
+
+	// 记忆召回（阶段三）可选项；Enabled 未显式配置时为 false 不启用
+	MemoryRecallEnabled  bool    `json:"memoryRecallEnabled"`
+	MemoryRecallBudgetMs int     `json:"memoryRecallBudgetMs"` // 召回总预算毫秒，默认 2000
+	MemoryRecallTopK     int     `json:"memoryRecallTopK"`     // 每集合召回条数，默认 4
+	MemoryRecallMinScore float64 `json:"memoryRecallMinScore"` // 相似度阈值，默认 0.35
+	MemoryRecallMaxChars int     `json:"memoryRecallMaxChars"` // 注入 prompt 的字符预算，默认 2000
 }
 
 type QdrantConfig struct {
@@ -163,6 +170,22 @@ func validateBaseConfig(cfg BaseConfig) error {
 	return nil
 }
 
+// applyMemoryConfigDefaults 对未配置的召回可选项补代码默认值
+func applyMemoryConfigDefaults(cfg *MemoryConfig) {
+	if cfg.MemoryRecallBudgetMs <= 0 {
+		cfg.MemoryRecallBudgetMs = 2000
+	}
+	if cfg.MemoryRecallTopK <= 0 {
+		cfg.MemoryRecallTopK = 4
+	}
+	if cfg.MemoryRecallMinScore <= 0 {
+		cfg.MemoryRecallMinScore = 0.35
+	}
+	if cfg.MemoryRecallMaxChars <= 0 {
+		cfg.MemoryRecallMaxChars = 2000
+	}
+}
+
 func validateMemoryConfig(cfg MemoryConfig) error {
 	if cfg.MemoryBatchMaxTurns <= 0 || cfg.MemoryBatchMaxChars <= 0 || cfg.MemoryBatchMaxWaitSec <= 0 {
 		return errors.New("memory.local.json 阈值字段必须 > 0")
@@ -185,6 +208,17 @@ func validateMemoryConfig(cfg MemoryConfig) error {
 	provider := strings.ToLower(strings.TrimSpace(cfg.EmbeddingProvider))
 	if provider == "ali" && cfg.EmbeddingDimension <= 0 {
 		return errors.New("memory.local.json provider=ali 时 embeddingDimension 必须 > 0")
+	}
+	if cfg.MemoryRecallEnabled {
+		if cfg.MemoryRecallTopK < 1 || cfg.MemoryRecallTopK > 10 {
+			return errors.New("memory.local.json memoryRecallTopK 必须在 1-10")
+		}
+		if cfg.MemoryRecallMinScore < 0 || cfg.MemoryRecallMinScore > 1 {
+			return errors.New("memory.local.json memoryRecallMinScore 必须在 0-1")
+		}
+		if cfg.MemoryRecallBudgetMs > 10000 {
+			return errors.New("memory.local.json memoryRecallBudgetMs 不能超过 10000")
+		}
 	}
 	return nil
 }
@@ -215,6 +249,7 @@ func loadAllLocalConfig() error {
 	if err := loadJSONConfig("./conf/memory.local.json", &Memory); err != nil {
 		return fmt.Errorf("读取 memory.local.json 失败: %w", err)
 	}
+	applyMemoryConfigDefaults(&Memory)
 	if err := validateMemoryConfig(Memory); err != nil {
 		return err
 	}

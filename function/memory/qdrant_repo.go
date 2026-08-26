@@ -2,7 +2,9 @@ package memory
 
 import (
 	"300Bot/conf"
+	"300Bot/function/memory/recall"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -196,6 +198,59 @@ func UpsertMemorySummary(summary MemorySummary) (string, error) {
 	return repo.UpsertMemorySummary(summary)
 }
 
+// EmbedQuery 将查询文本转向量，供召回链路在两个 collection 间共用（只 embed 一次）
+func (r *QdrantRepository) EmbedQuery(query string) ([]float32, error) {
+	return r.embedder.Embed(query)
+}
+
+// Search 在 scope 对应集合中检索与 vector 最相似的 topK 个记忆点，
+// payload filter 按 ownerId 过滤（user→user_id、group→group_id），带 ctx 预算控制
+func (r *QdrantRepository) Search(ctx context.Context, scope string, ownerId string, vector []float32, topK int) ([]recall.MemoryHit, error) {
+	scope = strings.ToLower(strings.TrimSpace(scope))
+	var collection, filterKey string
+	switch scope {
+	case "user":
+		collection, filterKey = r.collectionUser, "user_id"
+	case "group":
+		collection, filterKey = r.collectionGroup, "group_id"
+	default:
+		return nil, fmt.Errorf("不支持的 scope: %s", scope)
+	}
+	ownerId = strings.TrimSpace(ownerId)
+	if ownerId == "" {
+		return nil, fmt.Errorf("scope=%s 时 ownerId 不能为空", scope)
+	}
+	if topK <= 0 {
+		topK = 4
+	}
+	if len(vector) != r.vectorSize {
+		return nil, fmt.Errorf("embedding 维度不匹配 got=%d want=%d", len(vector), r.vectorSize)
+	}
+
+	req := map[string]interface{}{
+		"vector":       vector,
+		"limit":        topK,
+		"with_payload": true,
+		"filter": map[string]interface{}{
+			"must": []interface{}{
+				map[string]interface{}{
+					"key":   filterKey,
+					"match": map[string]interface{}{"value": ownerId},
+				},
+			},
+		},
+	}
+	path := "/collections/" + url.PathEscape(collection) + "/points/search"
+	respBody, statusCode, err := r.doJSONCtx(ctx, http.MethodPost, path, req)
+	if err != nil {
+		return nil, err
+	}
+	if statusCode < 200 || statusCode >= 300 {
+		return nil, fmt.Errorf("qdrant search 失败 status=%d body=%s", statusCode, strings.TrimSpace(string(respBody)))
+	}
+	return recall.ParseSearchResponse(respBody, scope)
+}
+
 func (r *QdrantRepository) collectionByScope(scope string, userId string, groupId string) (string, string, error) {
 	switch strings.ToLower(strings.TrimSpace(scope)) {
 	case "user":
@@ -239,6 +294,11 @@ func (r *QdrantRepository) buildPayload(summary MemorySummary, text string, dedu
 }
 
 func (r *QdrantRepository) doJSON(method string, path string, payload interface{}) ([]byte, int, error) {
+	return r.doJSONCtx(context.Background(), method, path, payload)
+}
+
+// doJSONCtx 与 doJSON 相同，但请求携带 ctx，供召回等带预算的链路使用
+func (r *QdrantRepository) doJSONCtx(ctx context.Context, method string, path string, payload interface{}) ([]byte, int, error) {
 	var body io.Reader
 	if payload != nil {
 		buf, err := json.Marshal(payload)
@@ -248,7 +308,7 @@ func (r *QdrantRepository) doJSON(method string, path string, payload interface{
 		body = bytes.NewReader(buf)
 	}
 
-	req, err := http.NewRequest(method, r.baseURL+path, body)
+	req, err := http.NewRequestWithContext(ctx, method, r.baseURL+path, body)
 	if err != nil {
 		return nil, 0, err
 	}

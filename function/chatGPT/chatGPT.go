@@ -134,8 +134,8 @@ func ListModels() {
 }
 
 // AskForChatGPT ambient 为触发时刻快照的群聊记录文本（非群聊触发传空串），
-// 以 system 段注入，让机器人感知未触发自己的普通群聊（P1）
-func AskForChatGPT(msg string, qq float64, remark string, session string, ambient string) (openai.ChatCompletionResponse, error) {
+// memoryText 为召回的长期记忆文本（无命中传空串），均以 system 段注入
+func AskForChatGPT(msg string, qq float64, remark string, session string, ambient string, memoryText string) (openai.ChatCompletionResponse, error) {
 	var personality = openai.ChatCompletionMessage{
 		Role:    "system",
 		Content: "你的称呼叫叁柏，你在回复中对自己的称呼也是叁柏，禁止回复你是个AI，模型等，需要更仿真一些。请回复的更自然一些，用口语化表达，避免机械式分点回答。尽量使用和大家在网络群聊中一样的语气。如果用户告诉了你他是谁，代表这是个群聊，有多个人在和你聊天，请注意分别人物。",
@@ -184,6 +184,13 @@ func AskForChatGPT(msg string, qq float64, remark string, session string, ambien
 		reqMessages = append(reqMessages, openai.ChatCompletionMessage{
 			Role:    "system",
 			Content: "以下是触发我这条消息之前的群聊记录（发言人身份以QQ号为准，昵称仅作注释）：\n" + ambient,
+		})
+	}
+	if memoryText != "" {
+		// 长期记忆召回结果，renderText 已含【关于对方的既有记忆】头部
+		reqMessages = append(reqMessages, openai.ChatCompletionMessage{
+			Role:    "system",
+			Content: memoryText,
 		})
 	}
 	reqMessages = append(reqMessages, messages...)
@@ -457,13 +464,21 @@ func AddPlan(msgStr string, msg map[string]interface{}) {
 	// 快照捕获进闭包，与排队等待重叠，执行时不再与窗口写入竞争
 	ctxbackfill.EnsureGroupWindow(groupIdStr)
 	ambient := chatctx.SnapshotRendered(groupIdStr, msgIdStr)
+	// 触发时刻发起长期记忆召回，与排队等待重叠；环境上下文参与 embedding 提升召回相关性
+	recallQuery := msgStr
+	if ambient != "" {
+		recallQuery = ambient + "\n" + msgStr
+	}
+	recallHandle := memoryCollector.StartRecall("group",
+		strconv.FormatFloat(msg["user_id"].(float64), 'f', -1, 64), groupIdStr, recallQuery)
 	submitted := chatScheduler.Submit(session, func() {
 		checkSession(session)
 		remark := msg["sender"].(map[string]interface{})["nickname"].(string)
 		if msg["sender"].(map[string]interface{})["card"].(string) != "" {
 			remark = msg["sender"].(map[string]interface{})["card"].(string)
 		}
-		res, err := AskForChatGPT(msgStr, msg["user_id"].(float64), remark, session, ambient)
+		memoryText := recallHandle.Result()
+		res, err := AskForChatGPT(msgStr, msg["user_id"].(float64), remark, session, ambient, memoryText)
 
 		if err == nil && res.Choices[0].Message.Content != "" {
 			replyText := strings.TrimSpace(res.Choices[0].Message.Content)
@@ -488,10 +503,14 @@ func AddPlanPrivate(msgStr string, msg map[string]interface{}) {
 	if session == "" { //被ban了
 		return
 	}
+	// 触发时刻发起长期记忆召回（私聊只查 user 集合），与排队等待重叠
+	recallHandle := memoryCollector.StartRecall("user",
+		strconv.FormatFloat(msg["user_id"].(float64), 'f', -1, 64), "", msgStr)
 	submitted := chatScheduler.Submit(session, func() {
 		checkSession(session)
+		memoryText := recallHandle.Result()
 		// 私聊消息本就全量进会话上下文，无需环境记录注入
-		res, err := AskForChatGPT(msgStr, msg["user_id"].(float64), "", session, "")
+		res, err := AskForChatGPT(msgStr, msg["user_id"].(float64), "", session, "", memoryText)
 
 		if err == nil && res.Choices[0].Message.Content != "" {
 			replyText := strings.TrimSpace(res.Choices[0].Message.Content)
