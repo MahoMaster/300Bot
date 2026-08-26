@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -61,6 +62,12 @@ type wsConnection struct {
 }
 
 func wsHandler(resp http.ResponseWriter, req *http.Request) {
+	// 非websocket升级请求直接拒绝，避免普通HTTP请求（扫描器/浏览器等）触发升级报错
+	if !strings.EqualFold(req.Header.Get("Upgrade"), "websocket") {
+		log.Println("收到非websocket升级请求，已忽略", req.RemoteAddr, req.URL.Path)
+		http.Error(resp, "websocket only", http.StatusBadRequest)
+		return
+	}
 	// 应答客户端告知升级连接为websocket
 	wsSocket, err := upgrader.Upgrade(resp, req, nil)
 	if err != nil {
