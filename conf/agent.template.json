@@ -1,0 +1,6 @@
+{
+  "agentMaxRounds": 4,
+  "agentToolTimeoutSec": 15,
+  "agentEchoToolEnabled": false,
+  "agentRecallToolEnabled": false
+}

@@ -27,9 +27,6 @@
 	"ctxBackfillCount": 20,
 	"chatJsonMode": true,
 	"chatMemoryInlineEnabled": true,
-	"agentMaxRounds": 4,
-	"agentToolTimeoutSec": 15,
-	"agentEchoToolEnabled": false,
 	"chatModel": "qwen3.5-plus-2026-04-20",
 	"storyModel": "deepseek-r1",
 	"moneyList": []

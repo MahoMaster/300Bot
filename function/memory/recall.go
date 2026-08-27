@@ -71,42 +71,36 @@ func StartRecall(scope string, userId string, groupId string, query string) *Rec
 		log.Printf("memory recall skipped: qdrant 不可用 err=%v", err)
 		return emptyRecall()
 	}
+	_ = repo // 提前可用性检查；实际检索由 RecallSync 内部取库完成
 	handle := &Recall{ch: make(chan recallResult, 1)}
 	budget := time.Duration(conf.Memory.MemoryRecallBudgetMs) * time.Millisecond
-	go runRecall(handle, repo, scope, userId, groupId, query, budget)
+	go runRecall(handle, scope, userId, groupId, query, budget)
 	return handle
 }
 
-func runRecall(handle *Recall, repo *QdrantRepository, scope, userId, groupId, query string, budget time.Duration) {
-	defer func() {
-		if info := recover(); info != nil {
-			log.Printf("memory recall panic scope=%s info=%v", scope, info)
-			select {
-			case handle.ch <- recallResult{}:
-			default:
-			}
-		}
-	}()
-	start := time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), budget)
-	defer cancel()
-
+// RecallSync 同步召回：embedding 一次，user/group 两路并发检索，返回原始两路命中（未合并）。
+// err 仅在 qdrant 不可用或 embedding 失败时非 nil；单路搜索失败只记日志、另一路结果照常返回。
+// 时间预算由调用方通过 ctx 控制；userId/groupId 为空的一路不查。
+// 供触发时刻异步召回（runRecall）与 recall_memory 工具（agenttool）共用，避免重复搜索逻辑。
+func RecallSync(ctx context.Context, userId, groupId, query string) (userHits, groupHits []recall.MemoryHit, err error) {
+	repo, err := GetQdrantRepository()
+	if err != nil {
+		return nil, nil, err
+	}
 	// embedding 只做一次，两 collection 共用同一向量
 	vector, err := repo.EmbedQuery(query)
-	if err != nil || ctx.Err() != nil {
-		log.Printf("memory recall degraded scope=%s stage=embed err=%v", scope, err)
-		handle.ch <- recallResult{}
-		return
+	if err != nil {
+		return nil, nil, err
 	}
+	userId = strings.TrimSpace(userId)
+	groupId = strings.TrimSpace(groupId)
+	topK := conf.Memory.MemoryRecallTopK
 
 	var (
-		wg        sync.WaitGroup
-		userHits  []recall.MemoryHit
-		groupHits []recall.MemoryHit
-		userErr   error
-		groupErr  error
+		wg       sync.WaitGroup
+		userErr  error
+		groupErr error
 	)
-	topK := conf.Memory.MemoryRecallTopK
 	if userId != "" {
 		wg.Add(1)
 		go func() {
@@ -123,15 +117,38 @@ func runRecall(handle *Recall, repo *QdrantRepository, scope, userId, groupId, q
 	}
 	wg.Wait()
 
-	// 部分降级：一路失败/超时用另一路；两路全失败则不带记忆继续
+	// 部分降级：一路失败/超时用另一路；两路全失败则返回空命中由调用方处置
 	if userId != "" && userErr != nil {
 		log.Printf("memory recall user search failed owner=%s err=%v", userId, userErr)
 	}
 	if groupId != "" && groupErr != nil {
 		log.Printf("memory recall group search failed owner=%s err=%v", groupId, groupErr)
 	}
+	return userHits, groupHits, nil
+}
 
-	hits := recall.MergeHits(userHits, groupHits, topK, conf.Memory.MemoryRecallMinScore)
+func runRecall(handle *Recall, scope, userId, groupId, query string, budget time.Duration) {
+	defer func() {
+		if info := recover(); info != nil {
+			log.Printf("memory recall panic scope=%s info=%v", scope, info)
+			select {
+			case handle.ch <- recallResult{}:
+			default:
+			}
+		}
+	}()
+	start := time.Now()
+	ctx, cancel := context.WithTimeout(context.Background(), budget)
+	defer cancel()
+
+	userHits, groupHits, err := RecallSync(ctx, userId, groupId, query)
+	if err != nil {
+		log.Printf("memory recall degraded scope=%s stage=embed err=%v", scope, err)
+		handle.ch <- recallResult{}
+		return
+	}
+
+	hits := recall.MergeHits(userHits, groupHits, conf.Memory.MemoryRecallTopK, conf.Memory.MemoryRecallMinScore)
 	text := recall.RenderText(hits, conf.Memory.MemoryRecallMaxChars)
 	handle.ch <- recallResult{text: text, hits: hits}
 

@@ -54,11 +54,6 @@ type BaseConfig struct {
 	ChatJsonMode            bool `json:"chatJsonMode"`            // 请求 response_format: json_object
 	ChatMemoryInlineEnabled bool `json:"chatMemoryInlineEnabled"` // 回复内联记忆候选入队
 
-	// Agent 工具调用循环可选项，未配置时代码内补默认值；注册表默认无工具，行为与无循环时一致
-	AgentMaxRounds       int  `json:"agentMaxRounds"`       // 单次请求最大工具循环轮数，默认 4
-	AgentToolTimeoutSec  int  `json:"agentToolTimeoutSec"`  // 单工具执行超时秒数，默认 15
-	AgentEchoToolEnabled bool `json:"agentEchoToolEnabled"` // 是否注册 echo 联调测试工具，缺省 false
-
 	// 模型名（阶段五）可选项，未配置时代码内补默认值
 	ChatModel  string `json:"chatModel"`  // 聊天模型，默认 qwen3.5-plus-2026-04-20
 	StoryModel string `json:"storyModel"` // 修仙故事/JustChatGpt 模型，默认 deepseek-r1
@@ -100,6 +95,15 @@ type MemoryConfig struct {
 	MemoryRecallMaxChars int     `json:"memoryRecallMaxChars"` // 注入 prompt 的字符预算，默认 2000
 }
 
+// AgentConfig Agent 工具调用循环与工具开关，单独存 agent.local.json；
+// 注册表默认无工具，行为与无循环时一致
+type AgentConfig struct {
+	AgentMaxRounds         int  `json:"agentMaxRounds"`         // 单次请求最大工具循环轮数，默认 4
+	AgentToolTimeoutSec    int  `json:"agentToolTimeoutSec"`    // 单工具执行超时秒数，默认 15
+	AgentEchoToolEnabled   bool `json:"agentEchoToolEnabled"`   // 是否注册 echo 联调测试工具，缺省 false
+	AgentRecallToolEnabled bool `json:"agentRecallToolEnabled"` // 是否注册 recall_memory 工具，缺省 false，且需 memoryRecallEnabled 同时开启
+}
+
 type QdrantConfig struct {
 	QdrantUrl             string `json:"qdrantUrl"`
 	QdrantApiKey          string `json:"qdrantApiKey"`
@@ -114,6 +118,7 @@ type AppConfig struct {
 	Base   BaseConfig
 	Memory MemoryConfig
 	Qdrant QdrantConfig
+	Agent  AgentConfig
 }
 
 const (
@@ -127,6 +132,7 @@ var (
 	Config BaseConfig
 	Memory MemoryConfig
 	Qdrant QdrantConfig
+	Agent  AgentConfig
 	App    AppConfig
 )
 
@@ -176,12 +182,6 @@ func applyBaseConfigDefaults(cfg *BaseConfig) {
 	if cfg.CtxBackfillCount <= 0 {
 		cfg.CtxBackfillCount = 20
 	}
-	if cfg.AgentMaxRounds <= 0 {
-		cfg.AgentMaxRounds = 4
-	}
-	if cfg.AgentToolTimeoutSec <= 0 {
-		cfg.AgentToolTimeoutSec = 15
-	}
 	if strings.TrimSpace(cfg.ChatModel) == "" {
 		cfg.ChatModel = "qwen3.5-plus-2026-04-20"
 	}
@@ -227,6 +227,16 @@ func applyMemoryConfigDefaults(cfg *MemoryConfig) {
 	}
 	if cfg.MemoryRawBatchSize <= 0 {
 		cfg.MemoryRawBatchSize = 20
+	}
+}
+
+// applyAgentConfigDefaults 对未配置的 Agent 循环可选项补代码默认值；工具开关 bool 缺省 false
+func applyAgentConfigDefaults(cfg *AgentConfig) {
+	if cfg.AgentMaxRounds <= 0 {
+		cfg.AgentMaxRounds = 4
+	}
+	if cfg.AgentToolTimeoutSec <= 0 {
+		cfg.AgentToolTimeoutSec = 15
 	}
 }
 
@@ -298,6 +308,11 @@ func loadAllLocalConfig() error {
 		return err
 	}
 
+	if err := loadJSONConfig("./conf/agent.local.json", &Agent); err != nil {
+		return fmt.Errorf("读取 agent.local.json 失败: %w", err)
+	}
+	applyAgentConfigDefaults(&Agent)
+
 	if err := loadJSONConfig("./conf/qdrant.local.json", &Qdrant); err != nil {
 		return fmt.Errorf("读取 qdrant.local.json 失败: %w", err)
 	}
@@ -312,6 +327,7 @@ func loadAllLocalConfig() error {
 		Base:   Config,
 		Memory: Memory,
 		Qdrant: Qdrant,
+		Agent:  Agent,
 	}
 	return nil
 }

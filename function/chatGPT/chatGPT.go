@@ -3,6 +3,7 @@ package chatGPT
 import (
 	"300Bot/conf"
 	"300Bot/function/agent"
+	"300Bot/function/agenttool"
 	"300Bot/function/chatctx"
 	ctxbackfill "300Bot/function/chatctx/backfill"
 	memoryCollector "300Bot/function/memory"
@@ -81,12 +82,28 @@ func init() {
 
 	// Agent 工具调用循环：注册表默认为空（行为与无工具时一致），echo 联调工具按配置开关注册
 	agentRegistry = agent.NewRegistry()
-	if conf.Config.AgentEchoToolEnabled {
+	if conf.Agent.AgentEchoToolEnabled {
 		if err := agentRegistry.Register(agent.NewEchoTool()); err != nil {
 			log.Printf("agent echo tool register failed: %v", err)
 		}
 	}
-	agentRunner = agent.NewRunner(client, agentRegistry, conf.Config.AgentMaxRounds, time.Duration(conf.Config.AgentToolTimeoutSec)*time.Second)
+	// recall_memory 工具：复用被动召回的检索内核（memory.RecallSync），发言人身份由 AskForChatGPT 注入 ctx
+	if conf.Agent.AgentRecallToolEnabled {
+		if conf.Memory.MemoryRecallEnabled {
+			if err := agentRegistry.Register(agenttool.NewRecallMemoryTool(agenttool.RecallToolOptions{
+				Search:   memoryCollector.RecallSync,
+				TopK:     conf.Memory.MemoryRecallTopK,
+				MinScore: conf.Memory.MemoryRecallMinScore,
+				MaxChars: conf.Memory.MemoryRecallMaxChars,
+				Budget:   time.Duration(conf.Memory.MemoryRecallBudgetMs) * time.Millisecond,
+			})); err != nil {
+				log.Printf("agent recall tool register failed: %v", err)
+			}
+		} else {
+			log.Printf("agent recall tool skipped: memoryRecallEnabled=false")
+		}
+	}
+	agentRunner = agent.NewRunner(client, agentRegistry, conf.Agent.AgentMaxRounds, time.Duration(conf.Agent.AgentToolTimeoutSec)*time.Second)
 
 	// 群聊上下文窗口参数注入（chatctx 包不直接依赖 conf，便于单测）
 	chatctx.Configure(conf.Config.CtxWindowSize, conf.Config.CtxWindowMaxChars, conf.Config.CtxIdleMinutes, conf.Config.BotQQ, conf.Config.BotName)
@@ -114,7 +131,7 @@ func (t *noThinkingTransport) RoundTrip(req *http.Request) (*http.Response, erro
 		return nil, err
 	}
 	data["enable_thinking"] = false
-	data["enable_search"] = true
+	// 注意：enable_search 已真机验证在 ws- 独享部署端点被静默忽略，联网搜索改走 web_search 工具
 	newBody, err := json.Marshal(data)
 	if err != nil {
 		return nil, err
@@ -164,9 +181,10 @@ const chatJSONProtocolWithToolsPrompt = "你可以按需调用工具获取信息
 	"（每条一句完整陈述句，涉及人物必须引用QQ号，没有可提取的内容就给空数组）。"
 
 // AskForChatGPT ambientJSON 为群聊触发的结构化窗口快照 JSON 文本（非群聊触发传空串），
-// memoryHits 为长期记忆召回命中（无命中传 nil）。输入组装为结构化 JSON system 段，
+// memoryHits 为长期记忆召回命中（无命中传 nil），groupId 为群号（私聊传 ""），
+// 两者用于向 recall_memory 工具注入发言人身份。输入组装为结构化 JSON system 段，
 // 输出按固定 schema 解析（失败兜底整段当 reply）
-func AskForChatGPT(msg string, qq float64, remark string, session string, ambientJSON string, memoryHits []recall.MemoryHit) (openai.ChatCompletionResponse, inline.ChatReply, error) {
+func AskForChatGPT(msg string, qq float64, remark string, session string, ambientJSON string, memoryHits []recall.MemoryHit, groupId string) (openai.ChatCompletionResponse, inline.ChatReply, error) {
 	var emptyReply inline.ChatReply
 	var personality = openai.ChatCompletionMessage{
 		Role:    "system",
@@ -237,6 +255,8 @@ func AskForChatGPT(msg string, qq float64, remark string, session string, ambien
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(conf.Config.LLMTimeoutSec)*time.Second)
 	defer cancel()
+	// 发言人身份写入 ctx：recall_memory 工具从 ctx 读取，模型无法伪造冒用；Runner 工具子 ctx 自动传导
+	ctx = agenttool.WithRecallIdentity(ctx, agenttool.RecallIdentity{UserQQ: qqstr, GroupID: groupId})
 
 	req := openai.ChatCompletionRequest{
 		Model:    model,
@@ -575,7 +595,7 @@ func AddPlan(msgStr string, msg map[string]interface{}) {
 		if msg["sender"].(map[string]interface{})["card"].(string) != "" {
 			remark = msg["sender"].(map[string]interface{})["card"].(string)
 		}
-		res, parsed, err := AskForChatGPT(msgStr, msg["user_id"].(float64), remark, session, ambientJSON, recallHandle.Hits())
+		res, parsed, err := AskForChatGPT(msgStr, msg["user_id"].(float64), remark, session, ambientJSON, recallHandle.Hits(), groupIdStr)
 
 		if err == nil {
 			replyText := parsed.Reply
@@ -619,7 +639,7 @@ func AddPlanPrivate(msgStr string, msg map[string]interface{}) {
 	submitted := chatScheduler.Submit(session, func() {
 		checkSession(session)
 		// 私聊消息本就全量进会话上下文，无需环境记录注入
-		res, parsed, err := AskForChatGPT(msgStr, msg["user_id"].(float64), "", session, "", recallHandle.Hits())
+		res, parsed, err := AskForChatGPT(msgStr, msg["user_id"].(float64), "", session, "", recallHandle.Hits(), "")
 
 		if err == nil {
 			replyText := parsed.Reply
