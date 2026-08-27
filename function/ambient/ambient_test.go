@@ -38,11 +38,11 @@ func waitCount(count *int32, want int32, timeout time.Duration) int32 {
 func TestGateDisabledAndWhitelist(t *testing.T) {
 	count := installCounter()
 	// 总开关关闭
-	Configure(false, []string{"100"}, 100, 600, 0, 0, "999")
+	Configure(false, true, []string{"100"}, 100, 600, 0, 0, "999")
 	seedWindow("g-disabled")
 	OnGroupMessage("g-disabled", "200", "闲聊一句")
-	// 开关开但群不在白名单
-	Configure(true, []string{"100"}, 100, 600, 0, 0, "999")
+	// 开关开但群不在白名单（白名单开启）
+	Configure(true, true, []string{"100"}, 100, 600, 0, 0, "999")
 	seedWindow("g-outside")
 	OnGroupMessage("g-outside", "200", "闲聊一句")
 	if got := waitCount(count, 1, 200*time.Millisecond); got != 0 {
@@ -50,9 +50,20 @@ func TestGateDisabledAndWhitelist(t *testing.T) {
 	}
 }
 
+func TestWhitelistDisabledAllowsAnyGroup(t *testing.T) {
+	count := installCounter()
+	// 白名单关闭：白名单里没这个群也能触发，所有群都可进入闸门判定
+	Configure(true, false, []string{"100"}, 100, 600, 0, 0, "999")
+	seedWindow("g-any")
+	OnGroupMessage("g-any", "200", "随便哪个群都能插话")
+	if got := waitCount(count, 1, 2*time.Second); got != 1 {
+		t.Fatalf("白名单关闭后任意群应可触发, got=%d", got)
+	}
+}
+
 func TestChanceZeroNeverTriggers(t *testing.T) {
 	count := installCounter()
-	Configure(true, []string{"g-zero"}, 0, 600, 0, 0, "999")
+	Configure(true, true, []string{"g-zero"}, 0, 600, 0, 0, "999")
 	seedWindow("g-zero")
 	for i := 0; i < 20; i++ {
 		OnGroupMessage("g-zero", "200", "刷屏消息")
@@ -64,7 +75,7 @@ func TestChanceZeroNeverTriggers(t *testing.T) {
 
 func TestChanceHundredTriggers(t *testing.T) {
 	count := installCounter()
-	Configure(true, []string{"g-full"}, 100, 600, 0, 0, "999")
+	Configure(true, true, []string{"g-full"}, 100, 600, 0, 0, "999")
 	seedWindow("g-full")
 	OnGroupMessage("g-full", "200", "闲聊一句")
 	if got := waitCount(count, 1, 2*time.Second); got != 1 {
@@ -75,7 +86,7 @@ func TestChanceHundredTriggers(t *testing.T) {
 func TestPendingDedup(t *testing.T) {
 	count := installCounter()
 	// 思考延迟拉长到 1 秒，保证第二条消息落在 pending 期内
-	Configure(true, []string{"g-dedup"}, 100, 600, 1, 1, "999")
+	Configure(true, true, []string{"g-dedup"}, 100, 600, 1, 1, "999")
 	seedWindow("g-dedup")
 	OnGroupMessage("g-dedup", "200", "第一条")
 	OnGroupMessage("g-dedup", "201", "第二条应被 pending 挡住")
@@ -86,7 +97,7 @@ func TestPendingDedup(t *testing.T) {
 
 func TestCooldownAfterNotifyReplied(t *testing.T) {
 	count := installCounter()
-	Configure(true, []string{"g-cd"}, 100, 600, 0, 0, "999")
+	Configure(true, true, []string{"g-cd"}, 100, 600, 0, 0, "999")
 	seedWindow("g-cd")
 	OnGroupMessage("g-cd", "200", "闲聊一句")
 	if got := waitCount(count, 1, 2*time.Second); got != 1 {
@@ -102,7 +113,7 @@ func TestCooldownAfterNotifyReplied(t *testing.T) {
 
 func TestPureCQAndBotSenderAndBotLastSkipped(t *testing.T) {
 	count := installCounter()
-	Configure(true, []string{"g-skip"}, 100, 600, 0, 0, "999")
+	Configure(true, true, []string{"g-skip"}, 100, 600, 0, 0, "999")
 	seedWindow("g-skip")
 	// 纯 CQ 码消息
 	OnGroupMessage("g-skip", "200", "[CQ:image,file=a.jpg,url=http://x]")
@@ -119,7 +130,7 @@ func TestPureCQAndBotSenderAndBotLastSkipped(t *testing.T) {
 
 func TestWindowTooShortSkipped(t *testing.T) {
 	count := installCounter()
-	Configure(true, []string{"g-short"}, 100, 600, 0, 0, "999")
+	Configure(true, true, []string{"g-short"}, 100, 600, 0, 0, "999")
 	// 只入窗一条：当前消息本身入窗后仍不足最小窗口长度
 	now := time.Now().Unix()
 	chatctx.AppendGroup("g-short", "g-short-m1", "200", "小明", "只有这一条", now)

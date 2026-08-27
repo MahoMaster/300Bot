@@ -117,12 +117,15 @@ type QdrantConfig struct {
 // AmbientConfig 自主插话（环境回复）配置，单独存 ambient.json；
 // 参数各环境一致且无密钥，不进环境差异型的 conf.local.json；文件缺失时全走默认值（功能自动关闭）
 type AmbientConfig struct {
-	AmbientEnabled     bool     `json:"ambientEnabled"`     // 总开关，缺省 false
-	AmbientGroups      []string `json:"ambientGroups"`      // 允许插话的群号白名单，空数组 = 任何群都不插话
-	AmbientChance      int      `json:"ambientChance"`      // 闸门放行百分比 0-100，默认 8
-	AmbientCooldownSec int      `json:"ambientCooldownSec"` // 同群两次插话最小间隔秒，默认 600
-	AmbientThinkMinSec int      `json:"ambientThinkMinSec"` // 思考延迟下限秒，默认 3
-	AmbientThinkMaxSec int      `json:"ambientThinkMaxSec"` // 思考延迟上限秒，默认 10
+	AmbientEnabled bool `json:"ambientEnabled"` // 总开关，缺省 false
+	// AmbientWhitelistEnabled 是否启用群白名单：未配置（nil）默认 true 仅白名单群可插话；
+	// 显式 false 时所有群都可插话（用指针区分「未配置」与「显式关闭」，避免 bool 缺省 false 误开放全群）
+	AmbientWhitelistEnabled *bool    `json:"ambientWhitelistEnabled"`
+	AmbientGroups           []string `json:"ambientGroups"`      // 允许插话的群号白名单，白名单开启时空数组 = 任何群都不插话
+	AmbientChance           int      `json:"ambientChance"`      // 闸门放行百分比 0-100，默认 8
+	AmbientCooldownSec      int      `json:"ambientCooldownSec"` // 同群两次插话最小间隔秒，默认 600
+	AmbientThinkMinSec      int      `json:"ambientThinkMinSec"` // 思考延迟下限秒，默认 3
+	AmbientThinkMaxSec      int      `json:"ambientThinkMaxSec"` // 思考延迟上限秒，默认 10
 }
 
 type AppConfig struct {
@@ -253,8 +256,13 @@ func applyAgentConfigDefaults(cfg *AgentConfig) {
 	}
 }
 
-// applyAmbientConfigDefaults 对未配置的自主插话可选项补代码默认值；总开关 bool 缺省 false
+// applyAmbientConfigDefaults 对未配置的自主插话可选项补代码默认值；总开关 bool 缺省 false，
+// 白名单开关未配置默认开启（仅白名单群可插话，安全默认）
 func applyAmbientConfigDefaults(cfg *AmbientConfig) {
+	if cfg.AmbientWhitelistEnabled == nil {
+		defaultWhitelist := true
+		cfg.AmbientWhitelistEnabled = &defaultWhitelist
+	}
 	if cfg.AmbientChance <= 0 {
 		cfg.AmbientChance = 8
 	}

@@ -19,6 +19,7 @@ const minWindowLen = 2
 
 type ambientConfig struct {
 	enabled                         bool
+	whitelistOn                     bool
 	groups                          map[string]struct{}
 	chance, cooldownSec             int
 	thinkMinSec, thinkMaxSec        int
@@ -41,8 +42,9 @@ var (
 // cqCodeRe 剔除 CQ 码段，与 chatctx.sanitizeText 语义对齐的简化版（独立实现避免跨包引私有函数）
 var cqCodeRe = regexp.MustCompile(`\[CQ:[^\]]*\]`)
 
-// Configure 注入闸门参数，应在启动时调用一次；非法/空值由调用方（配置层）先补默认
-func Configure(enabled bool, groups []string, chance, cooldownSec, thinkMinSec, thinkMaxSec int, botQQ string) {
+// Configure 注入闸门参数，应在启动时调用一次；非法/空值由调用方（配置层）先补默认。
+// whitelistOn 为 false 时忽略 groups 白名单，所有群都可进入后续闸门判定
+func Configure(enabled, whitelistOn bool, groups []string, chance, cooldownSec, thinkMinSec, thinkMaxSec int, botQQ string) {
 	g := make(map[string]struct{}, len(groups))
 	for _, id := range groups {
 		id = strings.TrimSpace(id)
@@ -54,6 +56,7 @@ func Configure(enabled bool, groups []string, chance, cooldownSec, thinkMinSec, 
 	defer stateMu.Unlock()
 	cfg = ambientConfig{
 		enabled:      enabled,
+		whitelistOn:  whitelistOn,
 		groups:       g,
 		chance:       chance,
 		cooldownSec:  cooldownSec,
@@ -94,7 +97,7 @@ func OnGroupMessage(groupId, userId, rawText string) {
 		stateMu.Unlock()
 		return
 	}
-	if _, ok := cfg.groups[groupId]; !ok {
+	if _, ok := cfg.groups[groupId]; cfg.whitelistOn && !ok {
 		stateMu.Unlock()
 		return
 	}

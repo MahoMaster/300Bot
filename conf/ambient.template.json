@@ -1,5 +1,6 @@
 {
 	"ambientEnabled": false,
+	"ambientWhitelistEnabled": true,
 	"ambientGroups": [],
 	"ambientChance": 8,
 	"ambientCooldownSec": 600,

@@ -23,7 +23,8 @@ var ambientScheduler *scheduler.Scheduler
 // initAmbient 在 chatGPT 包 init 末尾调用：建独立调度池，并把闸门参数与决策回调注入 ambient 包
 func initAmbient() {
 	ambientScheduler = scheduler.New("ambient", 1, 2, 10*time.Minute)
-	ambient.Configure(conf.Ambient.AmbientEnabled, conf.Ambient.AmbientGroups, conf.Ambient.AmbientChance,
+	// 白名单开关配置层已保证非 nil（未配置补默认 true）
+	ambient.Configure(conf.Ambient.AmbientEnabled, *conf.Ambient.AmbientWhitelistEnabled, conf.Ambient.AmbientGroups, conf.Ambient.AmbientChance,
 		conf.Ambient.AmbientCooldownSec, conf.Ambient.AmbientThinkMinSec, conf.Ambient.AmbientThinkMaxSec, conf.Config.BotQQ)
 	ambient.SetDecideCallback(AddAmbientPlan)
 }
