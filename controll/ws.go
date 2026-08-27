@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -61,10 +62,31 @@ type wsConnection struct {
 	id        int64
 }
 
+func getClientIP(req *http.Request) string {
+	// 优先使用 Nginx 传过来的 X-Real-IP
+	if ip := req.Header.Get("X-Real-IP"); ip != "" {
+		return ip
+	}
+
+	// 再从 X-Forwarded-For 获取
+	if xff := req.Header.Get("X-Forwarded-For"); xff != "" {
+		// X-Forwarded-For 可能是：
+		// clientIP, proxyIP, proxyIP...
+		return strings.TrimSpace(strings.Split(xff, ",")[0])
+	}
+
+	// 没有代理头时才使用 RemoteAddr
+	host, _, err := net.SplitHostPort(req.RemoteAddr)
+	if err == nil {
+		return host
+	}
+
+	return req.RemoteAddr
+}
 func wsHandler(resp http.ResponseWriter, req *http.Request) {
 	// 非websocket升级请求直接拒绝，避免普通HTTP请求（扫描器/浏览器等）触发升级报错
 	if !strings.EqualFold(req.Header.Get("Upgrade"), "websocket") {
-		log.Println("收到非websocket升级请求，已忽略", req.RemoteAddr, req.URL.Path)
+		log.Println("收到非websocket升级请求，已忽略", getClientIP(req), req.URL.Path)
 		http.Error(resp, "websocket only", http.StatusBadRequest)
 		return
 	}
