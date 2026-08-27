@@ -131,7 +131,7 @@ func (t *noThinkingTransport) RoundTrip(req *http.Request) (*http.Response, erro
 		return nil, err
 	}
 	data["enable_thinking"] = false
-	// 注意：enable_search 已真机验证在 ws- 独享部署端点被静默忽略，联网搜索改走 web_search 工具
+	data["enable_search"] = true
 	newBody, err := json.Marshal(data)
 	if err != nil {
 		return nil, err
