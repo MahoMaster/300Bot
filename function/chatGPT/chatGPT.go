@@ -156,6 +156,13 @@ const chatJSONProtocolPrompt = "你必须只输出 JSON，不要输出任何其�
 	"should_reply 固定为 true；reply 是你对用户说的话，口语化自然表达；memory 数组是从本次对话中顺带提取的值得长期记住的记忆候选" +
 	"（每条一句完整陈述句，涉及人物必须引用QQ号，没有可提取的内容就给空数组）。"
 
+// chatJSONProtocolWithToolsPrompt 工具版输出协议：允许先按需调用工具，最终回复时才要求 JSON。
+// 无工具版的“你必须只输出 JSON”强约束会抑制模型的工具调用决策，工具启用时必须换用本提示
+const chatJSONProtocolWithToolsPrompt = "你可以按需调用工具获取信息或执行动作。当你完成必要的工具调用、最终回复用户时，必须只输出 JSON，不要输出任何其他文字。" +
+	"格式：{\"should_reply\":true,\"reply\":\"你的回复内容\",\"memory\":[\"记忆候选\"]}。" +
+	"should_reply 固定为 true；reply 是你对用户说的话，口语化自然表达；memory 数组是从本次对话中顺带提取的值得长期记住的记忆候选" +
+	"（每条一句完整陈述句，涉及人物必须引用QQ号，没有可提取的内容就给空数组）。"
+
 // AskForChatGPT ambientJSON 为群聊触发的结构化窗口快照 JSON 文本（非群聊触发传空串），
 // memoryHits 为长期记忆召回命中（无命中传 nil）。输入组装为结构化 JSON system 段，
 // 输出按固定 schema 解析（失败兜底整段当 reply）
@@ -205,9 +212,14 @@ func AskForChatGPT(msg string, qq float64, remark string, session string, ambien
 	if personality.Content != "" {
 		reqMessages = append(reqMessages, personality)
 	}
+	hasTools := agentRegistry.Count() > 0
+	protocolPrompt := chatJSONProtocolPrompt
+	if hasTools {
+		protocolPrompt = chatJSONProtocolWithToolsPrompt
+	}
 	reqMessages = append(reqMessages, openai.ChatCompletionMessage{
 		Role:    "system",
-		Content: chatJSONProtocolPrompt,
+		Content: protocolPrompt,
 	})
 	// 环境段：ambient 快照 + 召回记忆 + 会话历史（不含当前触发消息）统一为结构化 JSON
 	if envJSON := buildChatContextJSON(ambientJSON, memoryHits, messages[:len(messages)-1]); envJSON != "" {
@@ -232,12 +244,13 @@ func AskForChatGPT(msg string, qq float64, remark string, session string, ambien
 		User:     qqstr,
 	}
 	// 注册表为空时不携带 tools 字段，生产路径请求体与现状完全一致
-	if agentRegistry.Count() > 0 {
+	if hasTools {
 		req.Tools = agentRegistry.Tools()
 	}
 	// 端点不支持 json_object 时将 chatJsonMode 置 false 回退纯 prompt 模式（ParseReply 兜底仍可解析）；
-	// tools 与 json_object 并用的端点兼容性待接入真实工具时真机验证，届时由工具接线方决定降级
-	if conf.Config.ChatJsonMode {
+	// 真机验证：百炼端点 response_format json_object 与 tools 并用会抑制工具调用（模型直出 JSON 不调工具），
+	// 故工具启用时不携带 json_object，ParseReply 兜底解析仍可处理 JSON 回复
+	if conf.Config.ChatJsonMode && !hasTools {
 		req.ResponseFormat = &openai.ChatCompletionResponseFormat{
 			Type: openai.ChatCompletionResponseFormatTypeJSONObject,
 		}
