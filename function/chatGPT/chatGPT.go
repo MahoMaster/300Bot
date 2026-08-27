@@ -2,6 +2,7 @@ package chatGPT
 
 import (
 	"300Bot/conf"
+	"300Bot/function/agent"
 	"300Bot/function/chatctx"
 	ctxbackfill "300Bot/function/chatctx/backfill"
 	memoryCollector "300Bot/function/memory"
@@ -47,6 +48,10 @@ var gptSettingMu sync.RWMutex
 var chatScheduler *scheduler.Scheduler
 var bgScheduler *scheduler.Scheduler
 
+// agentRegistry 工具注册表（默认无工具）；agentRunner 多轮工具调用循环执行器
+var agentRegistry *agent.Registry
+var agentRunner *agent.Runner
+
 const replyBusy = "叁柏现在有点忙，等一下再和我说吧~"
 const replyFailed = "啊咧，刚才脑子短路了没接住，要不再跟我说一遍？"
 
@@ -74,6 +79,15 @@ func init() {
 	chatScheduler = scheduler.New("chat", conf.Config.ChatConcurrency, conf.Config.ChatQueueDepth, 10*time.Minute)
 	bgScheduler = scheduler.New("bg", conf.Config.BgConcurrency, conf.Config.ChatQueueDepth, 10*time.Minute)
 
+	// Agent 工具调用循环：注册表默认为空（行为与无工具时一致），echo 联调工具按配置开关注册
+	agentRegistry = agent.NewRegistry()
+	if conf.Config.AgentEchoToolEnabled {
+		if err := agentRegistry.Register(agent.NewEchoTool()); err != nil {
+			log.Printf("agent echo tool register failed: %v", err)
+		}
+	}
+	agentRunner = agent.NewRunner(client, agentRegistry, conf.Config.AgentMaxRounds, time.Duration(conf.Config.AgentToolTimeoutSec)*time.Second)
+
 	// 群聊上下文窗口参数注入（chatctx 包不直接依赖 conf，便于单测）
 	chatctx.Configure(conf.Config.CtxWindowSize, conf.Config.CtxWindowMaxChars, conf.Config.CtxIdleMinutes, conf.Config.BotQQ, conf.Config.BotName)
 
@@ -100,6 +114,7 @@ func (t *noThinkingTransport) RoundTrip(req *http.Request) (*http.Response, erro
 		return nil, err
 	}
 	data["enable_thinking"] = false
+	data["enable_search"] = true
 	newBody, err := json.Marshal(data)
 	if err != nil {
 		return nil, err
@@ -216,14 +231,21 @@ func AskForChatGPT(msg string, qq float64, remark string, session string, ambien
 		Messages: reqMessages,
 		User:     qqstr,
 	}
-	// 端点不支持 json_object 时将 chatJsonMode 置 false 回退纯 prompt 模式（ParseReply 兜底仍可解析）
+	// 注册表为空时不携带 tools 字段，生产路径请求体与现状完全一致
+	if agentRegistry.Count() > 0 {
+		req.Tools = agentRegistry.Tools()
+	}
+	// 端点不支持 json_object 时将 chatJsonMode 置 false 回退纯 prompt 模式（ParseReply 兜底仍可解析）；
+	// tools 与 json_object 并用的端点兼容性待接入真实工具时真机验证，届时由工具接线方决定降级
 	if conf.Config.ChatJsonMode {
 		req.ResponseFormat = &openai.ChatCompletionResponseFormat{
 			Type: openai.ChatCompletionResponseFormatTypeJSONObject,
 		}
 	}
 	start := time.Now()
-	resp, err := client.CreateChatCompletion(ctx, req)
+	// Agent 循环：注册表为空时恰执行一次调用直接返回，行为与无工具前一致
+	agentRes, err := agentRunner.Run(ctx, req)
+	resp := agentRes.Response
 
 	if err != nil {
 		log.Printf("ChatCompletion error session=%s model=%s err=%v", session, model, err)
@@ -243,7 +265,7 @@ func AskForChatGPT(msg string, qq float64, remark string, session string, ambien
 	sessions[session] = cur
 	sessionsMu.Unlock()
 	// 日志收敛（P15）：不再全量打印响应 JSON，仅记单行摘要
-	log.Printf("chat response session=%s model=%s cost_ms=%d tokens=%d reply_preview=%s", session, model, time.Since(start).Milliseconds(), resp.Usage.TotalTokens, recall.PreviewText(parsed.Reply, 80))
+	log.Printf("chat response session=%s model=%s cost_ms=%d tokens=%d reply_preview=%s", session, model, time.Since(start).Milliseconds(), agentRes.TotalTokens, recall.PreviewText(parsed.Reply, 80))
 	return resp, parsed, nil
 }
 
