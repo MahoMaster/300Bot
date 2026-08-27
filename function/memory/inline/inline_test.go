@@ -105,3 +105,29 @@ func TestNormalizeReplyAllEmptyBecomesNil(t *testing.T) {
 		t.Fatalf("全空候选应归 nil: %+v", r.Memory)
 	}
 }
+
+func TestParseAmbientReplyShouldReplyTrue(t *testing.T) {
+	raw := `{"should_reply":true,"reply":"接一句","memory":[]}`
+	got := ParseAmbientReply(raw)
+	if !got.ShouldReply || got.Reply != "接一句" {
+		t.Fatalf("合法 true 解析错误: %+v", got)
+	}
+}
+
+func TestParseAmbientReplyShouldReplyFalse(t *testing.T) {
+	raw := `{"should_reply":false,"reply":"","memory":[]}`
+	got := ParseAmbientReply(raw)
+	if got.ShouldReply || got.Reply != "" {
+		t.Fatalf("合法 false 应保留沉默: %+v", got)
+	}
+}
+
+func TestParseAmbientReplyInvalidSilent(t *testing.T) {
+	// 与 ParseReply 的兜底相反：垃圾文本不得充当回复，一律沉默
+	for _, raw := range []string{"这不是{合法JSON", "今天天气不错", "   "} {
+		got := ParseAmbientReply(raw)
+		if got.ShouldReply || got.Reply != "" || got.Memory != nil {
+			t.Fatalf("非法/空输入应返回零值沉默: raw=%q got=%+v", raw, got)
+		}
+	}
+}

@@ -108,6 +108,9 @@ func init() {
 	// 群聊上下文窗口参数注入（chatctx 包不直接依赖 conf，便于单测）
 	chatctx.Configure(conf.Config.CtxWindowSize, conf.Config.CtxWindowMaxChars, conf.Config.CtxIdleMinutes, conf.Config.BotQQ, conf.Config.BotName)
 
+	// 自主插话（环境回复）：独立调度池与闸门参数/回调注入，与交互聊天池隔离互不挤占
+	initAmbient()
+
 	// m, _ := client.ListModels(context.Background())
 	// fmt.Println(m)
 }
@@ -180,15 +183,9 @@ const chatJSONProtocolWithToolsPrompt = "你可以按需调用工具获取信息
 	"should_reply 固定为 true；reply 是你对用户说的话，口语化自然表达；memory 数组是从本次对话中顺带提取的值得长期记住的记忆候选" +
 	"（每条一句完整陈述句，涉及人物必须引用QQ号，没有可提取的内容就给空数组）。"
 
-// AskForChatGPT ambientJSON 为群聊触发的结构化窗口快照 JSON 文本（非群聊触发传空串），
-// memoryHits 为长期记忆召回命中（无命中传 nil），groupId 为群号（私聊传 ""），
-// 两者用于向 recall_memory 工具注入发言人身份。输入组装为结构化 JSON system 段，
-// 输出按固定 schema 解析（失败兜底整段当 reply）
-func AskForChatGPT(msg string, qq float64, remark string, session string, ambientJSON string, memoryHits []recall.MemoryHit, groupId string) (openai.ChatCompletionResponse, inline.ChatReply, error) {
-	var emptyReply inline.ChatReply
-	var personality = openai.ChatCompletionMessage{
-		Role: "system",
-		Content: `你的称呼叫“叁柏”。在回复中使用“叁柏”作为自己的称呼。不要主动提及自己是 AI、语言模型、模型、人工智能等身份。
+// basePersonalityPrompt 默认人格提示词：显式触发的会话人格与环境插话决策共用；
+// 可被群/用户自定义人格（sessions[].Personality）覆盖的仅是显式触发路径，插话始终用默认人格。
+const basePersonalityPrompt = `你的称呼叫“叁柏”。在回复中使用“叁柏”作为自己的称呼。不要主动提及自己是 AI、语言模型、模型、人工智能等身份。
 
 你是一个自然、克制、有一点个人性格的群聊成员。你的目标不是刻意表现得有趣，而是像一个真实的人一样参与聊天。
 
@@ -242,7 +239,17 @@ func AskForChatGPT(msg string, qq float64, remark string, session string, ambien
 不要把每一次回复都写成一个段子。
 
 一个真实的人不会每句话都在表现自己的性格，叁柏也不需要。
-`,
+`
+
+// AskForChatGPT ambientJSON 为群聊触发的结构化窗口快照 JSON 文本（非群聊触发传空串），
+// memoryHits 为长期记忆召回命中（无命中传 nil），groupId 为群号（私聊传 ""），
+// 两者用于向 recall_memory 工具注入发言人身份。输入组装为结构化 JSON system 段，
+// 输出按固定 schema 解析（失败兜底整段当 reply）
+func AskForChatGPT(msg string, qq float64, remark string, session string, ambientJSON string, memoryHits []recall.MemoryHit, groupId string) (openai.ChatCompletionResponse, inline.ChatReply, error) {
+	var emptyReply inline.ChatReply
+	var personality = openai.ChatCompletionMessage{
+		Role:    "system",
+		Content: basePersonalityPrompt,
 		// Content: "你的称呼叫叁柏，你在回复中对自己的称呼也是叁柏，禁止回复你是个AI，模型等，需要更仿真一些。请回复的更自然一些，用口语化表达，避免机械式分点回答。尽量使用和大家在网络群聊中一样的语气。如果用户告诉了你他是谁，代表这是个群聊，有多个人在和你聊天，请注意分别人物。",
 	}
 

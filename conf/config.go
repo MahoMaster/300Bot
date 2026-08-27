@@ -114,11 +114,23 @@ type QdrantConfig struct {
 	QdrantTimeoutMs       int    `json:"qdrantTimeoutMs"`
 }
 
+// AmbientConfig 自主插话（环境回复）配置，单独存 ambient.json；
+// 参数各环境一致且无密钥，不进环境差异型的 conf.local.json；文件缺失时全走默认值（功能自动关闭）
+type AmbientConfig struct {
+	AmbientEnabled     bool     `json:"ambientEnabled"`     // 总开关，缺省 false
+	AmbientGroups      []string `json:"ambientGroups"`      // 允许插话的群号白名单，空数组 = 任何群都不插话
+	AmbientChance      int      `json:"ambientChance"`      // 闸门放行百分比 0-100，默认 8
+	AmbientCooldownSec int      `json:"ambientCooldownSec"` // 同群两次插话最小间隔秒，默认 600
+	AmbientThinkMinSec int      `json:"ambientThinkMinSec"` // 思考延迟下限秒，默认 3
+	AmbientThinkMaxSec int      `json:"ambientThinkMaxSec"` // 思考延迟上限秒，默认 10
+}
+
 type AppConfig struct {
-	Base   BaseConfig
-	Memory MemoryConfig
-	Qdrant QdrantConfig
-	Agent  AgentConfig
+	Base    BaseConfig
+	Memory  MemoryConfig
+	Qdrant  QdrantConfig
+	Agent   AgentConfig
+	Ambient AmbientConfig
 }
 
 const (
@@ -129,11 +141,12 @@ const (
 )
 
 var (
-	Config BaseConfig
-	Memory MemoryConfig
-	Qdrant QdrantConfig
-	Agent  AgentConfig
-	App    AppConfig
+	Config  BaseConfig
+	Memory  MemoryConfig
+	Qdrant  QdrantConfig
+	Agent   AgentConfig
+	Ambient AmbientConfig
+	App     AppConfig
 )
 
 func fileGetContents(path string) ([]byte, error) {
@@ -240,6 +253,22 @@ func applyAgentConfigDefaults(cfg *AgentConfig) {
 	}
 }
 
+// applyAmbientConfigDefaults 对未配置的自主插话可选项补代码默认值；总开关 bool 缺省 false
+func applyAmbientConfigDefaults(cfg *AmbientConfig) {
+	if cfg.AmbientChance <= 0 {
+		cfg.AmbientChance = 8
+	}
+	if cfg.AmbientCooldownSec <= 0 {
+		cfg.AmbientCooldownSec = 600
+	}
+	if cfg.AmbientThinkMinSec <= 0 {
+		cfg.AmbientThinkMinSec = 3
+	}
+	if cfg.AmbientThinkMaxSec < cfg.AmbientThinkMinSec {
+		cfg.AmbientThinkMaxSec = cfg.AmbientThinkMinSec + 7
+	}
+}
+
 func validateMemoryConfig(cfg MemoryConfig) error {
 	if cfg.MemoryBatchMaxTurns <= 0 || cfg.MemoryBatchMaxChars <= 0 || cfg.MemoryBatchMaxWaitSec <= 0 {
 		return errors.New("memory.local.json 阈值字段必须 > 0")
@@ -291,6 +320,13 @@ func validateQdrantConfig(cfg QdrantConfig) error {
 	return nil
 }
 
+func validateAmbientConfig(cfg AmbientConfig) error {
+	if cfg.AmbientChance < 0 || cfg.AmbientChance > 100 {
+		return errors.New("ambient.json ambientChance 必须在 0-100")
+	}
+	return nil
+}
+
 func loadAllLocalConfig() error {
 	if err := loadJSONConfig("./conf/conf.local.json", &Config); err != nil {
 		return fmt.Errorf("读取 conf.local.json 失败: %w", err)
@@ -313,6 +349,20 @@ func loadAllLocalConfig() error {
 	}
 	applyAgentConfigDefaults(&Agent)
 
+	// ambient.json 宽容加载（对「启动即失败」惯例的有意放宽）：新增可选文件，
+	// 缺失则跳过读取全走默认值（功能自动关闭），避免老部署因缺文件启动 panic；内容损坏仍 fail-fast
+	if _, statErr := os.Stat("./conf/ambient.json"); statErr == nil {
+		if err := loadJSONConfig("./conf/ambient.json", &Ambient); err != nil {
+			return fmt.Errorf("读取 ambient.json 失败: %w", err)
+		}
+	} else if !os.IsNotExist(statErr) {
+		return fmt.Errorf("读取 ambient.json 失败: %w", statErr)
+	}
+	applyAmbientConfigDefaults(&Ambient)
+	if err := validateAmbientConfig(Ambient); err != nil {
+		return err
+	}
+
 	if err := loadJSONConfig("./conf/qdrant.local.json", &Qdrant); err != nil {
 		return fmt.Errorf("读取 qdrant.local.json 失败: %w", err)
 	}
@@ -324,10 +374,11 @@ func loadAllLocalConfig() error {
 	}
 
 	App = AppConfig{
-		Base:   Config,
-		Memory: Memory,
-		Qdrant: Qdrant,
-		Agent:  Agent,
+		Base:    Config,
+		Memory:  Memory,
+		Qdrant:  Qdrant,
+		Agent:   Agent,
+		Ambient: Ambient,
 	}
 	return nil
 }

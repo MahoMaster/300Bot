@@ -247,6 +247,27 @@ func TestSnapshotJSONCharBudget(t *testing.T) {
 	}
 }
 
+func TestLastEntryIsBot(t *testing.T) {
+	resetForTest()
+	// 窗口不存在 / 为空都返回 false
+	if LastEntryIsBot("100") {
+		t.Fatal("空窗口应返回 false")
+	}
+	now := time.Now().Unix()
+	AppendGroup("100", "m1", "200", "昵称", "闲聊内容", now)
+	if LastEntryIsBot("100") {
+		t.Fatal("最后一条是群友消息应返回 false")
+	}
+	AppendBotReply("100", "机器人插话")
+	if !LastEntryIsBot("100") {
+		t.Fatal("最后一条是机器人发言应返回 true")
+	}
+	AppendGroup("100", "m2", "201", "昵称", "又一条群友消息", now+1)
+	if LastEntryIsBot("100") {
+		t.Fatal("群友新消息覆盖后应返回 false")
+	}
+}
+
 func idStr(i int) string {
 	return strconv.Itoa(i)
 }

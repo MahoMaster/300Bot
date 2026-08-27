@@ -1,0 +1,8 @@
+{
+	"ambientEnabled": false,
+	"ambientGroups": [],
+	"ambientChance": 8,
+	"ambientCooldownSec": 600,
+	"ambientThinkMinSec": 3,
+	"ambientThinkMaxSec": 10
+}

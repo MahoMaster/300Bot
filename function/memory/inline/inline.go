@@ -40,6 +40,25 @@ func ParseReply(raw string) ChatReply {
 	return parsed
 }
 
+// ParseAmbientReply 解析自主插话（环境回复）的 LLM 输出。兜底语义与 ParseReply 相反：
+// 显式触发必须回复，解析失败时整段当 reply；插话可有可无，解析失败返回零值（ShouldReply=false）
+// 保持沉默，避免把垃圾文本误发到群里；绝不拿非法输出充当回复内容。
+func ParseAmbientReply(raw string) ChatReply {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ChatReply{}
+	}
+	body := extractJSONBody(raw)
+	if body == "" {
+		return ChatReply{}
+	}
+	var parsed ChatReply
+	if err := json.Unmarshal([]byte(body), &parsed); err != nil {
+		return ChatReply{}
+	}
+	return parsed
+}
+
 // NormalizeReply 清洗解析结果：reply 与 memory 逐项 trim、丢弃空串、
 // memory 每项截断至 MaxCandidateRunes、最多保留 MaxCandidates 条、去重
 func NormalizeReply(r ChatReply) ChatReply {

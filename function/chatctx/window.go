@@ -253,6 +253,21 @@ func WindowLen(groupId string) int {
 	return len(w.entries)
 }
 
+// LastEntryIsBot 返回窗口最后一条是否机器人发言，用于自主插话闸门避免对着自己的话连环接话；
+// 窗口不存在或为空返回 false
+func LastEntryIsBot(groupId string) bool {
+	w := getWindow(groupId)
+	if w == nil {
+		return false
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if len(w.entries) == 0 {
+		return false
+	}
+	return w.entries[len(w.entries)-1].IsBot
+}
+
 // SnapshotRendered 将窗口内未超出空闲超时的消息渲染为群聊记录文本（时间升序），
 // 从新到旧按字符预算截断；excludeMsgIds 用于排除即将单独作为触发消息出现的条目
 func SnapshotRendered(groupId string, excludeMsgIds ...string) string {

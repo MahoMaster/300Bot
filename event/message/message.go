@@ -2,6 +2,7 @@ package message
 
 import (
 	"300Bot/conf"
+	"300Bot/function/ambient"
 	"300Bot/function/bangDream/station"
 	"300Bot/function/chatGPT"
 	"300Bot/function/chatctx"
@@ -145,6 +146,18 @@ func group(msg map[string]interface{}) {
 
 	// fmt.Println(self_id)
 	repeat.CheckRepeat(msg)
+
+	//自主插话判定：所有显式触发都未命中时才进入本地闸门，零 LLM 成本预筛，
+	//放行后由 chatGPT 包异步决策是否发言（失败静默）
+	onGroupAmbient(msg, msgStr)
+}
+
+// onGroupAmbient 提取群号/用户号后调闸门；与显式触发互斥——走到这里说明前面的规则链都没命中并 return，
+// 复读（repeat）本身不阻断插话判定，两者各自独立概率控制，冷却机制兼顾避免双发观感
+func onGroupAmbient(msg map[string]interface{}, msgStr string) {
+	groupIdStr := strconv.FormatFloat(msg["group_id"].(float64), 'f', -1, 64)
+	userIdStr := strconv.FormatFloat(msg["user_id"].(float64), 'f', -1, 64)
+	ambient.OnGroupMessage(groupIdStr, userIdStr, msgStr)
 }
 
 // appendChatWindow 将全量群聊（含未触发机器人的普通消息）追加进滑动窗口，
