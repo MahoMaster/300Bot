@@ -67,7 +67,13 @@ func processMemoryTask(workerId int, summary MemorySummary) {
 	var err error
 	for attempt := 0; attempt <= retryTimes; attempt++ {
 		var dedupKey string
-		dedupKey, err = UpsertMemorySummary(summary)
+		// Memory Manager（开关）：条目型候选先走查旧记忆+裁决再写；
+		// 关闭或非条目（内联/旧总结）直写，重试/退避/兜底边界不变，开关即回滚阀
+		if conf.Memory.MemoryManagerEnabled && summary.IsEntry() {
+			dedupKey, err = Reconcile(summary)
+		} else {
+			dedupKey, err = UpsertMemorySummary(summary)
+		}
 		if err == nil {
 			memorySuccessCount.Add(1)
 			log.Printf("memory upsert success worker=%d scope=%s user=%s group=%s dedup=%s %s", workerId, summary.Scope, summary.UserId, summary.GroupId, dedupKey, memoryMetricsLogKV())

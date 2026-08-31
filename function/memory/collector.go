@@ -7,6 +7,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func CollectInput(scope string, source string, sessionId string, msg map[string]interface{}) {
@@ -34,6 +35,19 @@ func CollectInput(scope string, source string, sessionId string, msg map[string]
 	// 热路径零 DB 阻塞（P13）：仅非阻塞入队，批量落库后由 raw writer 触发总结；
 	// 队列满仅记日志丢弃（raw_turns 本就是 L1 兜底，窗口上下文不受影响）
 	enqueueRawTurn(turn)
+
+	// 事件触发（开关）：身份声明/纠正/记忆指令类消息不等批量阈值，命中关键词且冷却通过即强制提取；
+	// 纯字符串匹配零 IO，热路径开销可忽略；延迟在独立 goroutine 内等待落库，不阻塞消息管道
+	if conf.Memory.MemoryEventTriggerEnabled && MatchEvent(rawText, conf.Memory.MemoryEventTriggerKeywords) {
+		ownerKey := scope + ":" + selectOwnerID(scope, turn.UserId, turn.GroupId)
+		if eventTriggerAllowed(ownerKey, conf.Memory.MemoryEventTriggerCooldownSec) {
+			log.Printf("memory event trigger hit scope=%s owner=%s message=%s", scope, ownerKey, turn.MessageId)
+			go func(triggerScope, triggerUserId, triggerGroupId string) {
+				time.Sleep(memoryEventTriggerFlushDelay)
+				TryBatchSummarizeOwnerForced(triggerScope, triggerUserId, triggerGroupId)
+			}(scope, turn.UserId, turn.GroupId)
+		}
+	}
 }
 
 func CollectOutput(scope string, source string, sessionId string, msg map[string]interface{}, replyText string) {

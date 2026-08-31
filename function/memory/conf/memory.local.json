@@ -1,0 +1,14 @@
+{
+  "memoryEnabled": false,
+  "memoryBatchMaxTurns": 24,
+  "memoryBatchMaxChars": 4000,
+  "memoryBatchMaxWaitSec": 900,
+  "memoryAsyncQueueSize": 2000,
+  "memoryWorkerCount": 4,
+  "memoryRetryTimes": 3,
+  "memoryMinImportance": 3,
+  "embeddingProvider": "openai_compatible",
+  "embeddingApiKey": "test-key",
+  "embeddingModel": "test-embedding",
+  "embeddingApiUrl": "http://127.0.0.1:0/embeddings"
+}

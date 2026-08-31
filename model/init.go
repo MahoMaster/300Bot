@@ -3,6 +3,7 @@ package model
 import (
 	"300Bot/conf"
 	"fmt"
+	"os"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -16,6 +17,8 @@ var err error
 // var redisErr error
 
 func init() {
+	// 纯函数单测旁路：BOT300_TEST=1 时只建连接句柄不 Ping 不建表，
+	// 避免依赖 model 的包（如 function/memory）无法离线跑单测；生产环境不设置该变量，fail-fast 语义不变
 	db, err = sqlx.Open(`mysql`, conf.Config.DatabaseUser+`:`+conf.Config.DatabasePassword+`@tcp(`+conf.Config.DatabaseHost+`)/`+conf.Config.BotDatabaseName+`?charset=utf8mb4&parseTime=true`)
 	if err != nil {
 		panic(err)
@@ -25,6 +28,9 @@ func init() {
 	db.SetMaxOpenConns(8)
 	db.SetConnMaxLifetime(30 * time.Minute)
 	db.SetConnMaxIdleTime(10 * time.Minute)
+	if os.Getenv("BOT300_TEST") == "1" {
+		return
+	}
 	if err = db.Ping(); err != nil {
 		panic(err)
 	}

@@ -1,0 +1,7 @@
+{
+  "name": "300Bot-test",
+  "port": "0",
+  "databaseHost": "127.0.0.1:3306",
+  "databaseUser": "test",
+  "botDatabaseName": "test_db"
+}

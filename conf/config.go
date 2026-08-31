@@ -93,6 +93,17 @@ type MemoryConfig struct {
 	MemoryRecallTopK     int     `json:"memoryRecallTopK"`     // 每集合召回条数，默认 4
 	MemoryRecallMinScore float64 `json:"memoryRecallMinScore"` // 相似度阈值，默认 0.35
 	MemoryRecallMaxChars int     `json:"memoryRecallMaxChars"` // 注入 prompt 的字符预算，默认 2000
+
+	// 记忆结构化改造可选项；每个开关缺省 false，逐级依赖（开 N 必须开 1..N-1）
+	MemoryEntryExtractEnabled        bool     `json:"memoryEntryExtractEnabled"`        // 条目化提取：收紧版 prompt 输出结构化 memories[]
+	MemoryStructuredPayloadEnabled   bool     `json:"memoryStructuredPayloadEnabled"`   // 结构化 payload：subject_id/mem_type/mem_key/status + 条目级去重键 + scroll 检索
+	MemoryManagerEnabled             bool     `json:"memoryManagerEnabled"`             // Memory Manager：查旧记忆后 AI 裁决 ADD/UPDATE/MERGE/DELETE/IGNORE
+	MemoryManagerModel               string   `json:"memoryManagerModel"`               // 裁决器模型，未配置回退 memorySummaryModel
+	MemoryEventTriggerEnabled        bool     `json:"memoryEventTriggerEnabled"`        // 事件触发：关键词命中立即提取，不等批量阈值
+	MemoryEventTriggerKeywords       []string `json:"memoryEventTriggerKeywords"`       // 事件触发关键词，未配置用内置默认词表
+	MemoryEventTriggerCooldownSec    int      `json:"memoryEventTriggerCooldownSec"`    // 同 owner 事件触发冷却秒，默认 300
+	MemoryLifecycleEnabled           bool     `json:"memoryLifecycleEnabled"`           // 生命周期：后台衰减/过期定时任务
+	MemoryDecayStaleDays             int      `json:"memoryDecayStaleDays"`             // 长期未验证天数阈值，默认 90
 }
 
 // AgentConfig Agent 工具调用循环与工具开关，单独存 agent.local.json；
@@ -244,6 +255,24 @@ func applyMemoryConfigDefaults(cfg *MemoryConfig) {
 	if cfg.MemoryRawBatchSize <= 0 {
 		cfg.MemoryRawBatchSize = 20
 	}
+	if strings.TrimSpace(cfg.MemoryManagerModel) == "" {
+		cfg.MemoryManagerModel = cfg.MemorySummaryModel
+	}
+	if cfg.MemoryEventTriggerCooldownSec <= 0 {
+		cfg.MemoryEventTriggerCooldownSec = 300
+	}
+	if len(cfg.MemoryEventTriggerKeywords) == 0 {
+		cfg.MemoryEventTriggerKeywords = defaultMemoryEventTriggerKeywords()
+	}
+	if cfg.MemoryDecayStaleDays <= 0 {
+		cfg.MemoryDecayStaleDays = 90
+	}
+}
+
+// defaultMemoryEventTriggerKeywords 事件触发内置词表：明确的身份声明/纠正/记忆指令类短语，
+// 只做低成本预筛，命中后仍走完整提取+裁决两道 LLM 关卡定性
+func defaultMemoryEventTriggerKeywords() []string {
+	return []string{"以后叫我", "叫我", "记住", "我叫", "改叫", "我搬到", "搬到", "搬去", "不再是", "忘掉", "别记", "请记住", "帮我记"}
 }
 
 // applyAgentConfigDefaults 对未配置的 Agent 循环可选项补代码默认值；工具开关 bool 缺省 false
@@ -310,6 +339,12 @@ func validateMemoryConfig(cfg MemoryConfig) error {
 		if cfg.MemoryRecallBudgetMs > 10000 {
 			return errors.New("memory.local.json memoryRecallBudgetMs 不能超过 10000")
 		}
+	}
+	if cfg.MemoryStructuredPayloadEnabled && !cfg.MemoryEntryExtractEnabled {
+		return errors.New("memory.local.json 开启 memoryStructuredPayloadEnabled 必须同时开启 memoryEntryExtractEnabled")
+	}
+	if cfg.MemoryManagerEnabled && (!cfg.MemoryEntryExtractEnabled || !cfg.MemoryStructuredPayloadEnabled) {
+		return errors.New("memory.local.json 开启 memoryManagerEnabled 必须同时开启 memoryEntryExtractEnabled 与 memoryStructuredPayloadEnabled")
 	}
 	return nil
 }

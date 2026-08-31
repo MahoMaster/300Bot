@@ -61,6 +61,8 @@ func timeInterval() {
 	c.AddFunc("0 */5 * * * *", withRecover("memory scan", memoryCollector.ScanPendingOwners))
 	c.AddFunc("0 */10 * * * *", withRecover("memory backfill", memoryCollector.BackfillFallback))
 	c.AddFunc("0 0 4 * * *", withRecover("memory cleanup", memoryCollector.CleanupSummarizedTurns))
+	// 记忆生命周期（阶段五）：每日 4:30 衰减扫描（开关关闭时函数内自判直接返回）
+	c.AddFunc("0 30 4 * * *", withRecover("memory decay", memoryCollector.DecayMemories))
 
 	// youzanSign()
 	// spec2 := "30 2 * * *"

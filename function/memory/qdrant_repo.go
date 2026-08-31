@@ -28,6 +28,41 @@ type QdrantRepository struct {
 	dedupWindow     int
 }
 
+// 条目记忆 status 取值：软删语义，永不硬删，可回滚；存量点无该字段不受 must_not 过滤影响
+const (
+	memoryStatusActive  = "active"
+	memoryStatusDeleted = "deleted"
+	memoryStatusExpired = "expired"
+	memoryStatusMerged  = "merged"
+)
+
+// MemoryPointRecord scroll 返回的单条点：点 ID + 全量 payload，供 Manager 裁决与生命周期任务使用
+type MemoryPointRecord struct {
+	Id      string
+	Payload map[string]interface{}
+}
+
+func (r MemoryPointRecord) PayloadString(key string) string {
+	if v, ok := r.Payload[key].(string); ok {
+		return strings.TrimSpace(v)
+	}
+	return ""
+}
+
+func (r MemoryPointRecord) PayloadInt64(key string) int64 {
+	if v, ok := r.Payload[key].(float64); ok {
+		return int64(v)
+	}
+	return 0
+}
+
+func (r MemoryPointRecord) PayloadFloat(key string) float64 {
+	if v, ok := r.Payload[key].(float64); ok {
+		return v
+	}
+	return 0
+}
+
 var (
 	qdrantRepo    *QdrantRepository
 	qdrantInitErr error
@@ -113,7 +148,13 @@ func (r *QdrantRepository) EnsureCollections() error {
 	if err := r.ensureOneCollection(r.collectionUser); err != nil {
 		return err
 	}
-	return r.ensureOneCollection(r.collectionGroup)
+	if err := r.ensureOneCollection(r.collectionGroup); err != nil {
+		return err
+	}
+	// payload 索引失败不阻断启动：小集合下无索引过滤检索仍可用，仅性能退化
+	r.ensurePayloadIndexes(r.collectionUser)
+	r.ensurePayloadIndexes(r.collectionGroup)
+	return nil
 }
 
 func (r *QdrantRepository) ensureOneCollection(collection string) error {
@@ -145,6 +186,26 @@ func (r *QdrantRepository) ensureOneCollection(collection string) error {
 	return nil
 }
 
+// ensurePayloadIndexes 幂等创建 keyword 索引：subject_id/mem_type/mem_key/status，
+// 支撑 Manager 的精确过滤检索（按人按属性查旧记忆），避免随点数增长线性退化；
+// 重复创建返回 200，失败仅告警不阻断启动
+func (r *QdrantRepository) ensurePayloadIndexes(collection string) {
+	for _, field := range []string{"subject_id", "mem_type", "mem_key", "status"} {
+		req := map[string]interface{}{
+			"field_name":  field,
+			"field_schema": "keyword",
+		}
+		respBody, statusCode, err := r.doJSON(http.MethodPut, "/collections/"+url.PathEscape(collection)+"/index", req)
+		if err != nil {
+			log.Printf("memory qdrant payload index failed collection=%s field=%s err=%v (continue)", collection, field, err)
+			continue
+		}
+		if statusCode < 200 || statusCode >= 300 {
+			log.Printf("memory qdrant payload index failed collection=%s field=%s status=%d body=%s (continue)", collection, field, statusCode, strings.TrimSpace(string(respBody)))
+		}
+	}
+}
+
 func (r *QdrantRepository) UpsertMemorySummary(summary MemorySummary) (string, error) {
 	collection, ownerId, err := r.collectionByScope(summary.Scope, summary.UserId, summary.GroupId)
 	if err != nil {
@@ -160,11 +221,17 @@ func (r *QdrantRepository) UpsertMemorySummary(summary MemorySummary) (string, e
 	}
 
 	dedupKey := BuildDedupKey(summary.Scope, ownerId, text)
+	if summary.IsEntry() && conf.Memory.MemoryStructuredPayloadEnabled {
+		// 条目记忆用三元组键：同 key 记忆文本更新后仍落同一点，为 Manager 的 UPDATE 铺路；
+		// legacy 记忆仍用文本哈希键，存量点与旧行为不变
+		dedupKey = BuildEntryDedupKey(summary.Scope, ownerId, summary.SubjectId, summary.Type, summary.Key)
+	}
 	pointID := BuildPointID(dedupKey)
 
-	// dedup_window 真实生效（P14）：窗口内重复记忆直接跳过，不刷时间戳、不重复 embed
+	// dedup_window 真实生效（P14）：窗口内重复记忆直接跳过，不刷时间戳、不重复 embed；
+	// 同点但文本已变更（条目更新/合并）不算新鲜，放行覆盖
 	if r.dedupWindow > 0 {
-		fresh, err := r.pointFresh(collection, pointID)
+		fresh, err := r.pointFresh(collection, pointID, text)
 		if err != nil {
 			log.Printf("memory dedup check failed scope=%s err=%v (continue upsert)", summary.Scope, err)
 		} else if fresh {
@@ -210,8 +277,8 @@ func UpsertMemorySummary(summary MemorySummary) (string, error) {
 }
 
 // pointFresh 检查同 dedupKey 的点是否已存在且仍在去重窗口内（now - created_at < dedupWindow）；
-// 404/无 created_at 返回 false
-func (r *QdrantRepository) pointFresh(collection string, pointID string) (bool, error) {
+// 404/无 created_at 返回 false；点存在但存储文本与传入文本不一致时同样返回 false（放行覆盖）
+func (r *QdrantRepository) pointFresh(collection string, pointID string, text string) (bool, error) {
 	path := "/collections/" + url.PathEscape(collection) + "/points/" + url.PathEscape(pointID)
 	respBody, statusCode, err := r.doJSON(http.MethodGet, path, nil)
 	if err != nil {
@@ -233,6 +300,9 @@ func (r *QdrantRepository) pointFresh(collection string, pointID string) (bool, 
 	}
 	createdAt, _ := got.Result.Payload["created_at"].(float64)
 	if createdAt <= 0 {
+		return false, nil
+	}
+	if storedText, ok := got.Result.Payload["text"].(string); ok && strings.TrimSpace(storedText) != "" && strings.TrimSpace(storedText) != text {
 		return false, nil
 	}
 	return time.Now().Unix()-int64(createdAt) < int64(r.dedupWindow), nil
@@ -271,14 +341,13 @@ func (r *QdrantRepository) Search(ctx context.Context, scope string, ownerId str
 		"vector":       vector,
 		"limit":        topK,
 		"with_payload": true,
-		"filter": map[string]interface{}{
-			"must": []interface{}{
-				map[string]interface{}{
-					"key":   filterKey,
-					"match": map[string]interface{}{"value": ownerId},
-				},
+		// must_not 排除死亡状态点；缺失 status 字段的存量点不受影响（Qdrant 对缺失字段不命中 must_not）
+		"filter": deadStatusFilter([]interface{}{
+			map[string]interface{}{
+				"key":   filterKey,
+				"match": map[string]interface{}{"value": ownerId},
 			},
-		},
+		}),
 	}
 	path := "/collections/" + url.PathEscape(collection) + "/points/search"
 	respBody, statusCode, err := r.doJSONCtx(ctx, http.MethodPost, path, req)
@@ -315,7 +384,7 @@ func (r *QdrantRepository) buildPayload(summary MemorySummary, text string, dedu
 	if createdAt <= 0 {
 		createdAt = time.Now().Unix()
 	}
-	return map[string]interface{}{
+	payload := map[string]interface{}{
 		"scope":            strings.ToLower(strings.TrimSpace(summary.Scope)),
 		"user_id":          strings.TrimSpace(summary.UserId),
 		"group_id":         strings.TrimSpace(summary.GroupId),
@@ -331,6 +400,192 @@ func (r *QdrantRepository) buildPayload(summary MemorySummary, text string, dedu
 		"dedup_key":        dedupKey,
 		"dedup_window_sec": r.dedupWindow,
 	}
+	if summary.IsEntry() && conf.Memory.MemoryStructuredPayloadEnabled {
+		// 条目型记忆追加结构化字段；召回只读 text/summary，新字段对其透明；
+		// legacy 记忆输出逐字节不变，存量回灌与旧点零影响
+		evidenceCount := summary.EvidenceCount
+		if evidenceCount <= 0 {
+			evidenceCount = 1
+		}
+		payload["subject_id"] = strings.TrimSpace(summary.SubjectId)
+		payload["mem_type"] = strings.TrimSpace(summary.Type)
+		payload["mem_key"] = strings.TrimSpace(summary.Key)
+		payload["status"] = memoryStatusActive
+		payload["schema"] = "entry_v1"
+		payload["evidence"] = strings.TrimSpace(summary.Evidence)
+		payload["evidence_count"] = evidenceCount
+		payload["updated_at"] = createdAt
+	}
+	return payload
+}
+
+// deadStatusFilter 包装 must 条件并追加 must_not 排除死亡状态（删除/过期/已并入）的点；
+// 存量点无 status 字段，Qdrant 对缺失字段不命中 must_not，不会被误排除——安全方向硬约束
+func deadStatusFilter(must []interface{}) map[string]interface{} {
+	return map[string]interface{}{
+		"must": must,
+		"must_not": []interface{}{
+			map[string]interface{}{
+				"key": "status",
+				"match": map[string]interface{}{
+					"any": []string{memoryStatusDeleted, memoryStatusExpired, memoryStatusMerged},
+				},
+			},
+		},
+	}
+}
+
+// ScrollEntries 精确过滤检索（不带向量）：owner + subject_id + mem_type[+mem_key] 取旧记忆，
+// 供 Manager 裁决前查同人同属性已有条目；比纯向量搜索确定，程序精确匹配优先原则的落点。
+// memType/memKey 为空时放宽对应条件；limit 默认 8。
+func (r *QdrantRepository) ScrollEntries(ctx context.Context, scope string, ownerId string, subjectId string, memType string, memKey string, limit int) ([]MemoryPointRecord, error) {
+	scope = strings.ToLower(strings.TrimSpace(scope))
+	var collection, filterKey string
+	switch scope {
+	case "user":
+		collection, filterKey = r.collectionUser, "user_id"
+	case "group":
+		collection, filterKey = r.collectionGroup, "group_id"
+	default:
+		return nil, fmt.Errorf("不支持的 scope: %s", scope)
+	}
+	ownerId = strings.TrimSpace(ownerId)
+	subjectId = strings.TrimSpace(subjectId)
+	if ownerId == "" || subjectId == "" {
+		return nil, fmt.Errorf("scroll 需要 ownerId 与 subjectId 均非空")
+	}
+	if limit <= 0 {
+		limit = 8
+	}
+
+	must := []interface{}{
+		map[string]interface{}{"key": filterKey, "match": map[string]interface{}{"value": ownerId}},
+		map[string]interface{}{"key": "subject_id", "match": map[string]interface{}{"value": subjectId}},
+	}
+	if memType = strings.TrimSpace(memType); memType != "" {
+		must = append(must, map[string]interface{}{"key": "mem_type", "match": map[string]interface{}{"value": memType}})
+	}
+	if memKey = strings.TrimSpace(memKey); memKey != "" {
+		must = append(must, map[string]interface{}{"key": "mem_key", "match": map[string]interface{}{"value": memKey}})
+	}
+
+	req := map[string]interface{}{
+		"limit":        limit,
+		"with_payload": true,
+		"filter":       deadStatusFilter(must),
+	}
+	path := "/collections/" + url.PathEscape(collection) + "/points/scroll"
+	respBody, statusCode, err := r.doJSONCtx(ctx, http.MethodPost, path, req)
+	if err != nil {
+		return nil, err
+	}
+	if statusCode < 200 || statusCode >= 300 {
+		return nil, fmt.Errorf("qdrant scroll 失败 status=%d body=%s", statusCode, strings.TrimSpace(string(respBody)))
+	}
+	var resp struct {
+		Result struct {
+			Points []struct {
+				Id      string                 `json:"id"`
+				Payload map[string]interface{} `json:"payload"`
+			} `json:"points"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return nil, err
+	}
+	records := make([]MemoryPointRecord, 0, len(resp.Result.Points))
+	for _, point := range resp.Result.Points {
+		if strings.TrimSpace(point.Id) == "" {
+			continue
+		}
+		records = append(records, MemoryPointRecord{Id: point.Id, Payload: point.Payload})
+	}
+	return records, nil
+}
+
+// ScrollDecayBatch 分页扫描条目型记忆（仅命中 schema=entry_v1，存量点不受影响），供生命周期任务；
+// offset 传上一页返回的 next_page_offset（首页空串），返回本页点与下一页偏移（空串表示无更多）
+func (r *QdrantRepository) ScrollDecayBatch(ctx context.Context, scope string, offset string, limit int) ([]MemoryPointRecord, string, error) {
+	scope = strings.ToLower(strings.TrimSpace(scope))
+	var collection string
+	switch scope {
+	case "user":
+		collection = r.collectionUser
+	case "group":
+		collection = r.collectionGroup
+	default:
+		return nil, "", fmt.Errorf("不支持的 scope: %s", scope)
+	}
+	if limit <= 0 {
+		limit = 200
+	}
+	req := map[string]interface{}{
+		"limit":        limit,
+		"with_payload": true,
+		"filter": map[string]interface{}{
+			"must": []interface{}{
+				map[string]interface{}{"key": "schema", "match": map[string]interface{}{"value": "entry_v1"}},
+			},
+		},
+	}
+	if offset = strings.TrimSpace(offset); offset != "" {
+		req["offset"] = offset
+	}
+	path := "/collections/" + url.PathEscape(collection) + "/points/scroll"
+	respBody, statusCode, err := r.doJSONCtx(ctx, http.MethodPost, path, req)
+	if err != nil {
+		return nil, "", err
+	}
+	if statusCode < 200 || statusCode >= 300 {
+		return nil, "", fmt.Errorf("qdrant decay scroll 失败 status=%d body=%s", statusCode, strings.TrimSpace(string(respBody)))
+	}
+	var resp struct {
+		Result struct {
+			Points []struct {
+				Id      string                 `json:"id"`
+				Payload map[string]interface{} `json:"payload"`
+			} `json:"points"`
+			NextPageOffset string `json:"next_page_offset"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return nil, "", err
+	}
+	records := make([]MemoryPointRecord, 0, len(resp.Result.Points))
+	for _, point := range resp.Result.Points {
+		if strings.TrimSpace(point.Id) == "" {
+			continue
+		}
+		records = append(records, MemoryPointRecord{Id: point.Id, Payload: point.Payload})
+	}
+	return records, strings.TrimSpace(resp.Result.NextPageOffset), nil
+}
+
+// SetPayloads 仅更新 payload 不动向量（POST /points/payload）：
+// evidence_count/status/updated_at 等元数据变更零重新 embed，是裁决省钱的关键路径；
+// 点 ID 不存在时 Qdrant 返回 400，由调用方按失败处置
+
+func (r *QdrantRepository) SetPayloads(scope string, userId string, groupId string, pointIDs []string, kv map[string]interface{}) error {
+	collection, _, err := r.collectionByScope(scope, userId, groupId)
+	if err != nil {
+		return err
+	}
+	if len(pointIDs) == 0 || len(kv) == 0 {
+		return nil
+	}
+	req := map[string]interface{}{
+		"points":  pointIDs,
+		"payload": kv,
+	}
+	path := "/collections/" + url.PathEscape(collection) + "/points/payload?wait=true"
+	respBody, statusCode, err := r.doJSON(http.MethodPost, path, req)
+	if err != nil {
+		return err
+	}
+	if statusCode < 200 || statusCode >= 300 {
+		return fmt.Errorf("qdrant set payload 失败 status=%d body=%s", statusCode, strings.TrimSpace(string(respBody)))
+	}
+	return nil
 }
 
 func (r *QdrantRepository) doJSON(method string, path string, payload interface{}) ([]byte, int, error) {
