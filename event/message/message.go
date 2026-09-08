@@ -10,6 +10,7 @@ import (
 	"300Bot/function/immortal"
 	memoryCollector "300Bot/function/memory"
 	"300Bot/function/repeat"
+	"300Bot/function/vision"
 	"300Bot/store"
 	"log"
 	"strconv"
@@ -89,6 +90,11 @@ func group(msg map[string]interface{}) {
 	}
 	memoryCollector.CollectInput("group", "group", session, msg)
 	appendChatWindow(msg)
+	// 图片识别（看表情包）：异步识别本条消息图片并回填窗口 [图片] 占位，
+	// 不阻塞 processLoop；开关关闭时不启动 goroutine，行为与现状一致
+	if conf.Config.ImageRecogEnabled {
+		go recognizeGroupImages(msg)
+	}
 
 	//查询#号，接入修仙游戏
 	msgStr = strings.TrimSpace(msgStr)
@@ -184,5 +190,26 @@ func appendChatWindow(msg map[string]interface{}) {
 		chatctx.SenderNickname(msg),
 		rawText,
 		ts,
+	)
+}
+
+// recognizeGroupImages 异步识别群消息中的图片并回填窗口占位（[图片] → [图片: 描述]）；
+// 无图直接返回，识别失败静默（保留 [图片]）。与触发注入共享 vision.Describe 的 URL 级缓存，
+// 同一次图片不会重复调用识别 API
+func recognizeGroupImages(msg map[string]interface{}) {
+	imgs := vision.ExtractImages(msg)
+	if len(imgs) == 0 {
+		return
+	}
+	groupId, _ := msg["group_id"].(float64)
+	msgId, _ := msg["message_id"].(float64)
+	descs := make([]string, 0, len(imgs))
+	for _, im := range imgs {
+		descs = append(descs, vision.Describe(im.URL))
+	}
+	chatctx.UpdateImageDescription(
+		strconv.FormatFloat(groupId, 'f', -1, 64),
+		strconv.FormatFloat(msgId, 'f', -1, 64),
+		descs,
 	)
 }

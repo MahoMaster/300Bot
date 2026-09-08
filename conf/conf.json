@@ -29,5 +29,12 @@
 	"chatMemoryInlineEnabled": true,
 	"chatModel": "qwen3.5-plus",
 	"storyModel": "qwen3.5-plus",
+	"imageRecogEnabled": false,
+	"visionModel": "qwen3.5-plus",
+	"visionApiUrl": "",
+	"imageRecogPrompt": "",
+	"imageRecogTimeoutSec": 30,
+	"imageRecogMaxDescChars": 200,
+	"imageRecogConcurrency": 3,
 	"moneyList": []
 }

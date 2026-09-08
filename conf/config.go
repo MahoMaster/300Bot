@@ -58,6 +58,15 @@ type BaseConfig struct {
 	ChatModel  string `json:"chatModel"`  // 聊天模型，默认 qwen3.5-plus-2026-04-20
 	StoryModel string `json:"storyModel"` // 修仙故事/JustChatGpt 模型，默认 deepseek-r1
 
+	// 图片识别（看表情包）可选项；总开关缺省 false，关闭时相关代码路径全部短路
+	ImageRecogEnabled      bool   `json:"imageRecogEnabled"`      // 图片识别总开关，默认 false
+	VisionModel            string `json:"visionModel"`            // 视觉模型，默认回退 chatModel
+	VisionApiUrl           string `json:"visionApiUrl"`           // 多模态端点，默认从 chatGPTbaseUrl 派生
+	ImageRecogPrompt       string `json:"imageRecogPrompt"`       // 识别提示词，默认内置
+	ImageRecogTimeoutSec   int    `json:"imageRecogTimeoutSec"`   // 单次识别超时秒，默认 30
+	ImageRecogMaxDescChars int    `json:"imageRecogMaxDescChars"` // 描述最大字符，默认 200
+	ImageRecogConcurrency  int    `json:"imageRecogConcurrency"`  // 识别并发上限，默认 3
+
 	MoneyList []string `json:"moneyList"` //赞助列表
 }
 
@@ -215,6 +224,29 @@ func applyBaseConfigDefaults(cfg *BaseConfig) {
 	if strings.TrimSpace(cfg.StoryModel) == "" {
 		cfg.StoryModel = "deepseek-r1"
 	}
+	// 图片识别可选项默认值；VisionModel 回退 ChatModel（当前聊天模型已具备视觉能力）
+	if strings.TrimSpace(cfg.VisionModel) == "" {
+		cfg.VisionModel = cfg.ChatModel
+	}
+	if cfg.ImageRecogTimeoutSec <= 0 {
+		cfg.ImageRecogTimeoutSec = 30
+	}
+	if cfg.ImageRecogMaxDescChars <= 0 {
+		cfg.ImageRecogMaxDescChars = 200
+	}
+	if cfg.ImageRecogConcurrency <= 0 {
+		cfg.ImageRecogConcurrency = 3
+	}
+	if strings.TrimSpace(cfg.ImageRecogPrompt) == "" {
+		cfg.ImageRecogPrompt = defaultImageRecogPrompt()
+	}
+}
+
+// defaultImageRecogPrompt 图片识别内置提示词：要求模型输出简短、可直接嵌入上下文的描述，
+// 若是表情包/梗图则点明其情绪或含义，不输出“这张图片”之类冗余开头
+func defaultImageRecogPrompt() string {
+	return "请用不超过80字简要描述这张图片：画面主体、场景、以及图中出现的任何文字。" +
+		"如果是表情包或梗图，请点明它表达的情绪或含义。只输出描述本身，不要加“这张图片”之类的开头。"
 }
 
 func validateBaseConfig(cfg BaseConfig) error {

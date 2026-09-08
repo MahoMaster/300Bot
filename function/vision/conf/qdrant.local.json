@@ -1,0 +1,9 @@
+{
+  "qdrantUrl": "http://127.0.0.1:6333",
+  "qdrantApiKey": "",
+  "qdrantCollectionUser": "mem_user_v1",
+  "qdrantCollectionGroup": "mem_group_v1",
+  "qdrantVectorSize": 1152,
+  "qdrantDistance": "Cosine",
+  "qdrantTimeoutMs": 3000
+}

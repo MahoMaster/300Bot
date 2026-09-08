@@ -268,6 +268,49 @@ func TestLastEntryIsBot(t *testing.T) {
 	}
 }
 
+func TestUpdateImageDescription(t *testing.T) {
+	resetForTest()
+	now := time.Now().Unix()
+	AppendGroup("100", "m1", "200", "小明", "看这个[CQ:image,file=a.jpg,url=http://x]好看", now)
+	UpdateImageDescription("100", "m1", []string{"一只微笑的猫"})
+	rendered := SnapshotRendered("100")
+	if !strings.Contains(rendered, "[图片: 一只微笑的猫]") {
+		t.Fatalf("图片描述未回填: %s", rendered)
+	}
+	if strings.Contains(rendered, "[图片]") {
+		t.Fatalf("原占位未被替换: %s", rendered)
+	}
+}
+
+func TestUpdateImageDescriptionMultiAndEmpty(t *testing.T) {
+	resetForTest()
+	now := time.Now().Unix()
+	AppendGroup("100", "m1", "200", "小明", "[CQ:image,file=a.jpg,url=http://x][CQ:image,file=b.jpg,url=http://y]", now)
+	// 第二张描述为空：按序替换，空描述保留 [图片]
+	UpdateImageDescription("100", "m1", []string{"第一张图", ""})
+	rendered := SnapshotRendered("100")
+	if !strings.Contains(rendered, "[图片: 第一张图]") {
+		t.Fatalf("第一张描述未回填: %s", rendered)
+	}
+	if !strings.Contains(rendered, "[图片]") {
+		t.Fatalf("空描述应保留 [图片] 占位: %s", rendered)
+	}
+}
+
+func TestUpdateImageDescriptionNoOp(t *testing.T) {
+	resetForTest()
+	now := time.Now().Unix()
+	AppendGroup("100", "m1", "200", "小明", "[CQ:image,file=a.jpg,url=http://x]", now)
+	// msgId 不存在 / 群不存在 / descs 为空 均 no-op，不 panic、不替换
+	UpdateImageDescription("100", "not-exist", []string{"描述"})
+	UpdateImageDescription("999", "m1", []string{"描述"})
+	UpdateImageDescription("100", "m1", nil)
+	rendered := SnapshotRendered("100")
+	if !strings.Contains(rendered, "[图片]") || strings.Contains(rendered, "[图片: ") {
+		t.Fatalf("不应发生任何替换: %s", rendered)
+	}
+}
+
 func idStr(i int) string {
 	return strconv.Itoa(i)
 }

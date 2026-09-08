@@ -10,6 +10,7 @@ import (
 	"300Bot/function/memory/inline"
 	"300Bot/function/memory/recall"
 	"300Bot/function/scheduler"
+	"300Bot/function/vision"
 	"300Bot/model"
 	"300Bot/send"
 	"300Bot/util"
@@ -832,11 +833,13 @@ func AddPlan(msgStr string, msg map[string]interface{}) {
 	recallHandle := memoryCollector.StartRecall("group", qqStr, groupIdStr, recallQuery)
 	submitted := chatScheduler.Submit(session, func() {
 		checkSession(session)
+		// 触发消息自身的图片：注入视觉识别描述（[CQ:image]→[图片: 描述]），开关关闭时原样返回
+		enriched := vision.InjectDescriptions(msgStr, msg)
 		remark := msg["sender"].(map[string]interface{})["nickname"].(string)
 		if msg["sender"].(map[string]interface{})["card"].(string) != "" {
 			remark = msg["sender"].(map[string]interface{})["card"].(string)
 		}
-		res, parsed, err := AskForChatGPT(msgStr, msg["user_id"].(float64), remark, session, ambientJSON, recallHandle.Hits(), groupIdStr)
+		res, parsed, err := AskForChatGPT(enriched, msg["user_id"].(float64), remark, session, ambientJSON, recallHandle.Hits(), groupIdStr)
 
 		if err == nil {
 			replyText := parsed.Reply
@@ -879,8 +882,9 @@ func AddPlanPrivate(msgStr string, msg map[string]interface{}) {
 	recallHandle := memoryCollector.StartRecall("user", qqStr, "", msgStr)
 	submitted := chatScheduler.Submit(session, func() {
 		checkSession(session)
-		// 私聊消息本就全量进会话上下文，无需环境记录注入
-		res, parsed, err := AskForChatGPT(msgStr, msg["user_id"].(float64), "", session, "", recallHandle.Hits(), "")
+		// 触发消息自身的图片：注入视觉识别描述；私聊消息本就全量进会话上下文，无需环境记录注入
+		enriched := vision.InjectDescriptions(msgStr, msg)
+		res, parsed, err := AskForChatGPT(enriched, msg["user_id"].(float64), "", session, "", recallHandle.Hits(), "")
 
 		if err == nil {
 			replyText := parsed.Reply

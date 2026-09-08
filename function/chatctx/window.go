@@ -62,6 +62,8 @@ var (
 var (
 	cqImageRe = regexp.MustCompile(`\[CQ:image[^\]]*\]`)
 	cqCodeRe  = regexp.MustCompile(`\[CQ:[^\]]*\]`)
+	// imagePlaceholderRe 匹配 sanitizeText 生成的 [图片] 占位，用于识别完成后回填描述
+	imagePlaceholderRe = regexp.MustCompile(`\[图片\]`)
 )
 
 // Configure 覆盖窗口参数，小于等于 0 / 空串的项保持默认；应在启动时调用一次。
@@ -205,6 +207,36 @@ func AppendBotReply(groupId, text string) {
 	})
 	trimLocked(w)
 	w.lastActive = now
+}
+
+// UpdateImageDescription 找到 msgId 对应条目，把其 Text 中的 [图片] 占位按序替换为 [图片: desc]。
+// 图片识别为异步过程，识别完成后回填；窗口/条目不存在（可能已被 trim 驱逐）时 no-op，
+// descs 为空的占位保持 [图片] 不变。descs 顺序须与该条消息中图片出现顺序一致。
+func UpdateImageDescription(groupId, msgId string, descs []string) {
+	if groupId == "" || msgId == "" || len(descs) == 0 {
+		return
+	}
+	w := getWindow(groupId)
+	if w == nil {
+		return
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for i := range w.entries {
+		if w.entries[i].msgId != msgId {
+			continue
+		}
+		idx := 0
+		w.entries[i].Text = imagePlaceholderRe.ReplaceAllStringFunc(w.entries[i].Text, func(string) string {
+			defer func() { idx++ }()
+			if idx < len(descs) && strings.TrimSpace(descs[idx]) != "" {
+				return "[图片: " + descs[idx] + "]"
+			}
+			return "[图片]"
+		})
+		w.lastActive = time.Now().Unix()
+		return
+	}
 }
 
 // PrependEntries 将补拉的历史消息按调用方给定的时间升序插到窗口头部，按 message_id 去重
