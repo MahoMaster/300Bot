@@ -235,6 +235,8 @@ func (r *QdrantRepository) UpsertMemorySummary(summary MemorySummary) (string, e
 		if err != nil {
 			log.Printf("memory dedup check failed scope=%s err=%v (continue upsert)", summary.Scope, err)
 		} else if fresh {
+			// 去重窗口跳过也是"写入成功"的一种结局，不留日志会误以为落了新点
+			log.Printf("memory upsert skipped scope=%s point=%s reason=dedup_fresh text=%s", summary.Scope, pointID, recall.PreviewText(text, 40))
 			return dedupKey, nil
 		}
 	}
@@ -265,6 +267,9 @@ func (r *QdrantRepository) UpsertMemorySummary(summary MemorySummary) (string, e
 	if statusCode < 200 || statusCode >= 300 {
 		return "", fmt.Errorf("qdrant upsert 失败 status=%d body=%s", statusCode, strings.TrimSpace(string(respBody)))
 	}
+	// 落库成功日志：point 可在 Qdrant 控制台直接按 ID 查；entry 标记区分条目型/legacy 两代点
+	log.Printf("memory upsert written scope=%s collection=%s point=%s entry=%v subject=%s type=%s key=%s text=%s",
+		summary.Scope, collection, pointID, summary.IsEntry(), summary.SubjectId, summary.Type, summary.Key, recall.PreviewText(text, 40))
 	return dedupKey, nil
 }
 

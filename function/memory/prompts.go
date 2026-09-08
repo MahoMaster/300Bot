@@ -9,8 +9,9 @@ import (
 // prompts.go 集中管理记忆提取与裁决的 prompt、输出 schema 结构体与纯解析函数，
 // 便于独立迭代；解析/规范化均为纯函数，单元测试不依赖 conf。
 
-// 条目化提取每批上限（与 inline.MaxCandidates 对齐，控制逐条入队的队列压力）
-const memoryEntryMaxPerBatch = 5
+// 条目化提取每批上限：大批次（200 轮 / 10 万字）可产出的有价值记忆远多于 5 条，
+// 放宽到 20 避免截断丢信息；仍限制单批入队压力（队列 2000 / worker 4）
+const memoryEntryMaxPerBatch = 20
 
 // 单条 value 截断长度（与 inline.MaxCandidateRunes 对齐）
 const memoryEntryMaxValueRunes = 500

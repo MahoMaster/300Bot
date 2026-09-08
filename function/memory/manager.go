@@ -2,6 +2,7 @@ package memory
 
 import (
 	"300Bot/conf"
+	"300Bot/function/memory/recall"
 	"context"
 	"fmt"
 	"log"
@@ -92,12 +93,17 @@ func Reconcile(entry MemorySummary) (string, error) {
 	}
 
 	// 4. 冲突/相关：单次裁决调用
+	log.Printf("memory manager adjudicating scope=%s owner=%s subject=%s type=%s key=%s olds=%d value=%s",
+		entry.Scope, ownerId, entry.SubjectId, entry.Type, entry.Key, len(olds), recall.PreviewText(entry.Summary, 40))
 	decision, err := callAdjudication(entry, olds)
 	if err != nil {
 		log.Printf("memory manager adjudicate failed scope=%s owner=%s subject=%s key=%s err=%v (degrade to add)",
 			entry.Scope, ownerId, entry.SubjectId, entry.Key, err)
 		return UpsertMemorySummary(entry)
 	}
+	// 裁决结果总览：与各分支执行日志（ignore/soft-delete/update/merge/add）配对阅读
+	log.Printf("memory manager decision scope=%s owner=%s subject=%s key=%s decision=%s target=%s confidence=%.2f merged_value=%s",
+		entry.Scope, ownerId, entry.SubjectId, entry.Key, decision.Decision, decision.TargetPointId, decision.Confidence, recall.PreviewText(decision.MergedValue, 60))
 	return executeDecision(repo, entry, olds, decision)
 }
 

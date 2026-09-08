@@ -18,6 +18,10 @@ func EnqueueInlineCandidates(scope, userId, groupId, sessionId, messageId, sourc
 	if source == "" {
 		source = "inline"
 	}
+	// 内联候选接收日志：确认回复协议里的 memory 字段确实送到了记忆链路
+	if len(candidates) > 0 {
+		log.Printf("memory inline collected scope=%s user=%s group=%s session=%s candidates=%d", scope, userId, groupId, sessionId, len(candidates))
+	}
 	for _, cand := range candidates {
 		cand = strings.TrimSpace(cand)
 		if cand == "" {

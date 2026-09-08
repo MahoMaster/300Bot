@@ -4,6 +4,7 @@ import (
 	"300Bot/conf"
 	"300Bot/function/memory/recall"
 	"context"
+	"fmt"
 	"log"
 	"strings"
 	"sync"
@@ -74,6 +75,9 @@ func StartRecall(scope string, userId string, groupId string, query string) *Rec
 	_ = repo // 提前可用性检查；实际检索由 RecallSync 内部取库完成
 	handle := &Recall{ch: make(chan recallResult, 1)}
 	budget := time.Duration(conf.Memory.MemoryRecallBudgetMs) * time.Millisecond
+	// 召回发起日志：与完成日志（runRecall）配对，只有 start 没有完成 = 超预算被放弃
+	log.Printf("memory recall start scope=%s user=%s group=%s budget_ms=%d query=%s",
+		scope, userId, groupId, conf.Memory.MemoryRecallBudgetMs, recall.PreviewText(query, 60))
 	go runRecall(handle, scope, userId, groupId, query, budget)
 	return handle
 }
@@ -88,10 +92,12 @@ func RecallSync(ctx context.Context, userId, groupId, query string) (userHits, g
 		return nil, nil, err
 	}
 	// embedding 只做一次，两 collection 共用同一向量
+	embedStart := time.Now()
 	vector, err := repo.EmbedQuery(query)
 	if err != nil {
 		return nil, nil, err
 	}
+	embedMs := time.Since(embedStart).Milliseconds()
 	userId = strings.TrimSpace(userId)
 	groupId = strings.TrimSpace(groupId)
 	topK := conf.Memory.MemoryRecallTopK
@@ -100,22 +106,32 @@ func RecallSync(ctx context.Context, userId, groupId, query string) (userHits, g
 		wg       sync.WaitGroup
 		userErr  error
 		groupErr error
+		userMs   int64
+		groupMs  int64
 	)
 	if userId != "" {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			start := time.Now()
 			userHits, userErr = repo.Search(ctx, "user", userId, vector, topK)
+			userMs = time.Since(start).Milliseconds()
 		}()
 	}
 	if groupId != "" {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			start := time.Now()
 			groupHits, groupErr = repo.Search(ctx, "group", groupId, vector, topK)
+			groupMs = time.Since(start).Milliseconds()
 		}()
 	}
 	wg.Wait()
+
+	// 分段耗时与两路原始命中（合并/阈值过滤前）：定位"召回慢"和"召回空"到具体环节
+	log.Printf("memory recall sync user=%s group=%s embed_ms=%d user_ms=%d user_hits=%d[%s] group_ms=%d group_hits=%d[%s]",
+		userId, groupId, embedMs, userMs, len(userHits), scoresPreview(userHits), groupMs, len(groupHits), scoresPreview(groupHits))
 
 	// 部分降级：一路失败/超时用另一路；两路全失败则返回空命中由调用方处置
 	if userId != "" && userErr != nil {
@@ -156,7 +172,16 @@ func runRecall(handle *Recall, scope, userId, groupId, query string, budget time
 	if len(hits) > 0 {
 		topScore = hits[0].Score
 	}
-	log.Printf("memory recall scope=%s query_len=%d user_hits=%d group_hits=%d merged=%d top_score=%.2f cost_ms=%d preview=%s",
+	log.Printf("memory recall scope=%s query_len=%d user_hits=%d group_hits=%d merged=%d top_score=%.2f scores=[%s] cost_ms=%d preview=%s",
 		scope, len([]rune(query)), len(userHits), len(groupHits), len(hits), topScore,
-		time.Since(start).Milliseconds(), recall.PreviewText(text, 80))
+		scoresPreview(hits), time.Since(start).Milliseconds(), recall.PreviewText(text, 80))
+}
+
+// scoresPreview 将命中分数列表渲染为紧凑字符串（如 "0.82,0.55"）供日志观察阈值过滤前后的分布
+func scoresPreview(hits []recall.MemoryHit) string {
+	parts := make([]string, 0, len(hits))
+	for _, h := range hits {
+		parts = append(parts, fmt.Sprintf("%.2f", h.Score))
+	}
+	return strings.Join(parts, ",")
 }

@@ -2,6 +2,7 @@ package memory
 
 import (
 	"300Bot/conf"
+	"300Bot/function/memory/recall"
 	"300Bot/model"
 	"context"
 	"encoding/json"
@@ -90,6 +91,9 @@ func tryBatchSummarizeOwner(scope string, userId string, groupId string, force b
 	if len(selectedTurns) == 0 || transcript == "" {
 		return
 	}
+	// 批次触发日志：pending=待处理总数 selected=本批截断后实际入选（pending>selected 说明被轮次/字数上限截断，剩余留给下批）
+	log.Printf("memory batch fired scope=%s owner=%s force=%v pending=%d selected=%d transcript_chars=%d wait_sec=%d",
+		scope, ownerId, force, len(turns), len(selectedTurns), len([]rune(transcript)), waitSec)
 	ids := make([]int64, 0, len(selectedTurns))
 	for _, turn := range selectedTurns {
 		ids = append(ids, turn.Id)
@@ -138,9 +142,13 @@ func summarizeEntries(scope string, ownerId string, transcript string, selectedT
 	accepted := 0
 	for _, entry := range entries {
 		if entry.Importance < conf.Memory.MemoryMinImportance {
+			log.Printf("memory entry filtered scope=%s owner=%s subject=%s key=%s importance=%d confidence=%.2f reason=importance_below_%d value=%s",
+				scope, ownerId, entry.SubjectId, entry.Key, entry.Importance, entry.Confidence, conf.Memory.MemoryMinImportance, recall.PreviewText(entry.Value, 40))
 			continue
 		}
 		if entry.Confidence < memorySummaryConfidenceThreshold {
+			log.Printf("memory entry filtered scope=%s owner=%s subject=%s key=%s importance=%d confidence=%.2f reason=confidence_below_%.2f value=%s",
+				scope, ownerId, entry.SubjectId, entry.Key, entry.Importance, entry.Confidence, memorySummaryConfidenceThreshold, recall.PreviewText(entry.Value, 40))
 			continue
 		}
 		if entry.Confidence > memorySingleEvidenceConfidenceCap {
@@ -171,6 +179,7 @@ func callEntryExtraction(scope string, ownerId string, transcript string) ([]Mem
 	userPrompt := fmt.Sprintf("scope=%s owner_id=%s\n以下是群聊回合转写，请提取长期记忆候选。\n%s", scope, ownerId, transcript)
 	ctx, cancel := context.WithTimeout(context.Background(), memoryLLMCallTimeoutSec*time.Second)
 	defer cancel()
+	llmStart := time.Now()
 	resp, err := client.CreateChatCompletion(
 		ctx,
 		openai.ChatCompletionRequest{
@@ -183,12 +192,19 @@ func callEntryExtraction(scope string, ownerId string, transcript string) ([]Mem
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("提取 LLM 调用失败 cost_ms=%d: %w", time.Since(llmStart).Milliseconds(), err)
 	}
 	if len(resp.Choices) == 0 {
 		return nil, fmt.Errorf("empty choices")
 	}
-	return parseEntryExtraction(resp.Choices[0].Message.Content)
+	content := resp.Choices[0].Message.Content
+	entries, err := parseEntryExtraction(content)
+	if err != nil {
+		// 解析失败带原始输出预览：定位模型输出格式问题不用去翻上游日志
+		return nil, fmt.Errorf("%w raw=%s", err, recall.PreviewText(content, 300))
+	}
+	log.Printf("memory extract llm done scope=%s owner=%s cost_ms=%d candidates=%d", scope, ownerId, time.Since(llmStart).Milliseconds(), len(entries))
+	return entries, nil
 }
 
 // buildEntrySummary 候选 → MemorySummary（队列/入库唯一载体）：
@@ -255,10 +271,10 @@ func callStructuredSummary(scope string, ownerId string, transcript string) (mem
 	raw := strings.TrimSpace(resp.Choices[0].Message.Content)
 	raw = extractJSONBody(raw)
 	if raw == "" {
-		return result, fmt.Errorf("empty json payload")
+		return result, fmt.Errorf("empty json payload raw=%s", recall.PreviewText(resp.Choices[0].Message.Content, 300))
 	}
 	if err = json.Unmarshal([]byte(raw), &result); err != nil {
-		return result, err
+		return result, fmt.Errorf("%w raw=%s", err, recall.PreviewText(raw, 300))
 	}
 	result.Importance = clampInt(result.Importance, 1, 5)
 	result.Confidence = clampFloat(result.Confidence, 0, 1)
