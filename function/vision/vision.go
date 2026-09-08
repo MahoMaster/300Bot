@@ -145,6 +145,7 @@ func Describe(imageURL string) string {
 		// 命中：已完成则直接返回，进行中则等待其 done（带超时）
 		select {
 		case <-e.done:
+			log.Printf("vision describe cache hit url=%s desc_len=%d", imageURL, len([]rune(e.desc)))
 			return e.desc
 		case <-time.After(timeout):
 			log.Printf("vision describe wait timeout url=%s", imageURL)
@@ -180,7 +181,9 @@ func InjectDescriptions(msgStr string, msg map[string]interface{}) string {
 	if !cqImageRe.MatchString(msgStr) {
 		return msgStr
 	}
-	return cqImageRe.ReplaceAllStringFunc(msgStr, func(cq string) string {
+	total, described := 0, 0
+	out := cqImageRe.ReplaceAllStringFunc(msgStr, func(cq string) string {
+		total++
 		ref, ok := parseCQImage(cq)
 		if !ok || ref.FileSize > maxFileSizeBytes {
 			return "[图片]"
@@ -189,8 +192,11 @@ func InjectDescriptions(msgStr string, msg map[string]interface{}) string {
 		if strings.TrimSpace(desc) == "" {
 			return "[图片]"
 		}
+		described++
 		return "[图片: " + desc + "]"
 	})
+	log.Printf("vision inject done images=%d described=%d", total, described)
+	return out
 }
 
 // recognize 在信号量与总超时约束下完成一次识别：下载转 base64（主）→ 直传 URL（回退）→ 调用多模态端点
@@ -218,6 +224,8 @@ func recognize(imageURL string, timeout time.Duration) string {
 		return ""
 	}
 
+	log.Printf("vision recognize start url=%s endpoint=%s timeout=%s", imageURL, ep, timeout)
+	start := time.Now()
 	// 主路径：机器人下载图片转 base64（规避 DashScope 拉取 QQ CDN 的不确定性）；失败回退直传 URL
 	imageField := imageURL
 	if b, err := download(ctx, imageURL); err == nil && len(b) > 0 {
@@ -226,16 +234,23 @@ func recognize(imageURL string, timeout time.Duration) string {
 			mime = "image/jpeg"
 		}
 		imageField = "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(b)
+		log.Printf("vision recognize downloaded url=%s bytes=%d mime=%s cost_ms=%d", imageURL, len(b), mime, time.Since(start).Milliseconds())
 	} else if err != nil {
 		log.Printf("vision download failed, fallback to url, url=%s err=%v", imageURL, err)
 	}
 
 	desc, err := callVision(ctx, ep, apiKey, imageField)
 	if err != nil {
-		log.Printf("vision call failed url=%s err=%v", imageURL, err)
+		log.Printf("vision call failed url=%s cost_ms=%d err=%v", imageURL, time.Since(start).Milliseconds(), err)
 		return ""
 	}
-	return truncate(desc, conf.Config.ImageRecogMaxDescChars)
+	desc = truncate(desc, conf.Config.ImageRecogMaxDescChars)
+	if strings.TrimSpace(desc) == "" {
+		log.Printf("vision recognize empty url=%s cost_ms=%d", imageURL, time.Since(start).Milliseconds())
+	} else {
+		log.Printf("vision recognize done url=%s cost_ms=%d desc_len=%d preview=%s", imageURL, time.Since(start).Milliseconds(), len([]rune(desc)), truncate(desc, 60))
+	}
+	return desc
 }
 
 // endpoint 派生多模态端点：优先用 VisionApiUrl 覆盖，否则从 ChatGPTBaseUrl 的 scheme+host 拼接路径，
@@ -348,6 +363,13 @@ func callVision(ctx context.Context, ep, apiKey, imageField string) (string, err
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 
+	imageKind := "url"
+	if strings.HasPrefix(imageField, "data:") {
+		imageKind = "base64"
+	}
+	log.Printf("vision call request model=%s endpoint=%s image_kind=%s image_len=%d", model, ep, imageKind, len(imageField))
+
+	start := time.Now()
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", err
@@ -359,22 +381,28 @@ func callVision(ctx context.Context, ep, apiKey, imageField string) (string, err
 	}
 	var parsed visionResp
 	if err = json.Unmarshal(body, &parsed); err != nil {
+		log.Printf("vision call unmarshal failed model=%s status=%d cost_ms=%d body_preview=%s err=%v", model, resp.StatusCode, time.Since(start).Milliseconds(), truncate(string(body), 200), err)
 		return "", err
 	}
 	if parsed.Code != "" {
+		log.Printf("vision call api error model=%s request_id=%s code=%s message=%s", model, parsed.RequestID, parsed.Code, parsed.Message)
 		return "", fmt.Errorf("%s: %s (request_id=%s)", parsed.Code, parsed.Message, parsed.RequestID)
 	}
 	if resp.StatusCode >= http.StatusBadRequest {
+		log.Printf("vision call http error model=%s request_id=%s status=%d message=%s", model, parsed.RequestID, resp.StatusCode, parsed.Message)
 		return "", fmt.Errorf("status %d: %s", resp.StatusCode, parsed.Message)
 	}
 	if len(parsed.Output.Choices) == 0 {
+		log.Printf("vision call empty choices model=%s request_id=%s status=%d", model, parsed.RequestID, resp.StatusCode)
 		return "", fmt.Errorf("empty choices")
 	}
 	var sb strings.Builder
 	for _, c := range parsed.Output.Choices[0].Message.Content {
 		sb.WriteString(c.Text)
 	}
-	return strings.TrimSpace(sb.String()), nil
+	text := strings.TrimSpace(sb.String())
+	log.Printf("vision call response model=%s request_id=%s status=%d cost_ms=%d text_len=%d", model, parsed.RequestID, resp.StatusCode, time.Since(start).Milliseconds(), len([]rune(text)))
+	return text, nil
 }
 
 // ---- 辅助函数 ----

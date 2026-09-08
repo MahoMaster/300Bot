@@ -203,13 +203,19 @@ func recognizeGroupImages(msg map[string]interface{}) {
 	}
 	groupId, _ := msg["group_id"].(float64)
 	msgId, _ := msg["message_id"].(float64)
+	gidStr := strconv.FormatFloat(groupId, 'f', -1, 64)
+	midStr := strconv.FormatFloat(msgId, 'f', -1, 64)
+	log.Printf("vision group recognize start group=%s msg_id=%s imgs=%d", gidStr, midStr, len(imgs))
 	descs := make([]string, 0, len(imgs))
 	for _, im := range imgs {
 		descs = append(descs, vision.Describe(im.URL))
 	}
-	chatctx.UpdateImageDescription(
-		strconv.FormatFloat(groupId, 'f', -1, 64),
-		strconv.FormatFloat(msgId, 'f', -1, 64),
-		descs,
-	)
+	described := 0
+	for _, d := range descs {
+		if strings.TrimSpace(d) != "" {
+			described++
+		}
+	}
+	chatctx.UpdateImageDescription(gidStr, midStr, descs)
+	log.Printf("vision group recognize done group=%s msg_id=%s imgs=%d described=%d", gidStr, midStr, len(imgs), described)
 }

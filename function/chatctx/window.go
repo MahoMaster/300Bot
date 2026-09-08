@@ -6,6 +6,7 @@ package chatctx
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 	"sync"
@@ -218,6 +219,7 @@ func UpdateImageDescription(groupId, msgId string, descs []string) {
 	}
 	w := getWindow(groupId)
 	if w == nil {
+		log.Printf("chatctx image backfill skip group=%s msg_id=%s reason=no_window", groupId, msgId)
 		return
 	}
 	w.mu.Lock()
@@ -227,16 +229,20 @@ func UpdateImageDescription(groupId, msgId string, descs []string) {
 			continue
 		}
 		idx := 0
+		replaced := 0
 		w.entries[i].Text = imagePlaceholderRe.ReplaceAllStringFunc(w.entries[i].Text, func(string) string {
 			defer func() { idx++ }()
 			if idx < len(descs) && strings.TrimSpace(descs[idx]) != "" {
+				replaced++
 				return "[图片: " + descs[idx] + "]"
 			}
 			return "[图片]"
 		})
 		w.lastActive = time.Now().Unix()
+		log.Printf("chatctx image backfill group=%s msg_id=%s replaced=%d/%d", groupId, msgId, replaced, len(descs))
 		return
 	}
+	log.Printf("chatctx image backfill skip group=%s msg_id=%s reason=entry_not_found", groupId, msgId)
 }
 
 // PrependEntries 将补拉的历史消息按调用方给定的时间升序插到窗口头部，按 message_id 去重
